@@ -1,7 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2017-2021 The Denarius developers
+// Copyright (c) 2024 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_KEY_H
 #define BITCOIN_KEY_H
 
@@ -13,35 +16,21 @@
 #include "uint256.h"
 #include "util.h"
 
-#include <openssl/bn.h>
+#include <openssl/evp.h>
+#include <openssl/ec.h>
 #include <openssl/ecdsa.h>
+#include <openssl/bn.h>
 #include <openssl/rand.h>
 #include <openssl/obj_mac.h>
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
 
-#include <openssl/ec.h> // for EC_KEY definition
-
-// secp160k1
-// const unsigned int PRIVATE_KEY_SIZE = 192;
-// const unsigned int PUBLIC_KEY_SIZE  = 41;
-// const unsigned int SIGNATURE_SIZE   = 48;
-//
-// secp192k1
-// const unsigned int PRIVATE_KEY_SIZE = 222;
-// const unsigned int PUBLIC_KEY_SIZE  = 49;
-// const unsigned int SIGNATURE_SIZE   = 57;
-//
-// secp224k1
-// const unsigned int PRIVATE_KEY_SIZE = 250;
-// const unsigned int PUBLIC_KEY_SIZE  = 57;
-// const unsigned int SIGNATURE_SIZE   = 66;
-//
-// secp256k1:
-// const unsigned int PRIVATE_KEY_SIZE = 279;
-// const unsigned int PUBLIC_KEY_SIZE  = 65;
-// const unsigned int SIGNATURE_SIZE   = 72;
-//
-// see www.keylength.com
-// script supports up to 75 for single byte push
+// secp256k1 key sizes
+constexpr unsigned int PRIVATE_KEY_SIZE = 279;
+constexpr unsigned int PUBLIC_KEY_SIZE = 65;
+constexpr unsigned int COMPRESSED_PUBLIC_KEY_SIZE = 33;
+constexpr unsigned int SIGNATURE_SIZE = 72;
+constexpr unsigned int COMPACT_SIGNATURE_SIZE = 65;
 
 class key_error : public std::runtime_error
 {
@@ -68,14 +57,12 @@ public:
 /** An encapsulated public key. */
 class CPubKey {
 private:
-    //std::vector<unsigned char> vchPubKey;
-    //friend class CKey;
-	// Just store the serialized data.
+    // Just store the serialized data.
     // Its length can very cheaply be computed from the first byte.
     unsigned char vch[65];
 
-	// Compute the length of a pubkey with a given first byte.
-    unsigned int static GetLen(unsigned char chHeader) {
+    // Compute the length of a pubkey with a given first byte.
+    static unsigned int GetLen(unsigned char chHeader) {
         if (chHeader == 2 || chHeader == 3)
             return 33;
         if (chHeader == 4 || chHeader == 6 || chHeader == 7)
@@ -108,8 +95,8 @@ public:
     }
 
     // Construct a public key from a byte vector.
-    CPubKey(const std::vector<unsigned char> &vch) {
-        Set(vch.begin(), vch.end());
+    CPubKey(const std::vector<unsigned char> &vchIn) {
+        Set(vchIn.begin(), vchIn.end());
     }
 
     CPubKey(const unsigned char* p, const int len)
@@ -120,7 +107,7 @@ public:
             Invalidate();
     }
 
-	// Simple read-only vector-like interface to the pubkey data.
+    // Simple read-only vector-like interface to the pubkey data.
     unsigned int size() const { return GetLen(vch[0]); }
     const unsigned char *begin() const { return vch; }
     const unsigned char *end() const { return vch+size(); }
@@ -178,19 +165,19 @@ public:
     }
 
     // Check syntactic correctness.
-    //
     // Note that this is consensus critical as CheckSig() calls it!
     bool IsValid() const {
         return size() > 0;
     }
 
-     // fully validate whether this is a valid public key (more expensive than IsValid())
+    // fully validate whether this is a valid public key (more expensive than IsValid())
     bool IsFullyValid() const;
 
     // Check whether the public key corresponding to this private key is (to be) compressed.
     bool IsCompressed() const {
         return size() == 33;
     }
+    
     // Verify a DER signature (~72 bytes).
     // If this public key is not fully valid, the return value will be false.
     bool Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const;
@@ -199,7 +186,7 @@ public:
     // See CKey::SignCompact.
     bool VerifyCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig) const;
 
-	// Recover a public key from a compact signature.
+    // Recover a public key from a compact signature.
     bool RecoverCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig);
 
     // Turn this public key into an uncompressed public key.
@@ -210,9 +197,9 @@ public:
 
     // Raw for stealth address
     std::vector<unsigned char> Raw() const {
-	std::vector<unsigned char> r;
+        std::vector<unsigned char> r;
         r.insert(r.end(), vch, vch+size());
-	return r;
+        return r;
     }
 };
 
@@ -223,29 +210,84 @@ typedef std::vector<unsigned char, secure_allocator<unsigned char> > CPrivKey;
 // CSecret is a serialization of just the secret parameter (32 bytes)
 typedef std::vector<unsigned char, secure_allocator<unsigned char> > CSecret;
 
-/** An encapsulated OpenSSL Elliptic Curve key (public and/or private) */
+/**
+ * RAII wrapper for OpenSSL 3.x EVP_PKEY for secp256k1 EC operations.
+ * This is the modern replacement for the deprecated EC_KEY.
+ */
+class CECKey {
+private:
+    EVP_PKEY *pkey;
+
+    // Helper to create EVP_PKEY from raw secret bytes
+    bool CreateFromSecret(const unsigned char vch[32]);
+    
+    // Helper to create EVP_PKEY from raw public key bytes
+    bool CreateFromPubKey(const unsigned char* pubkey, size_t len);
+
+public:
+    CECKey();
+    ~CECKey();
+    
+    // Non-copyable
+    CECKey(const CECKey&) = delete;
+    CECKey& operator=(const CECKey&) = delete;
+    
+    // Move constructors
+    CECKey(CECKey&& other) noexcept;
+    CECKey& operator=(CECKey&& other) noexcept;
+
+    // Get the raw EVP_PKEY pointer (for interop)
+    EVP_PKEY* GetEVPKey() { return pkey; }
+    const EVP_PKEY* GetEVPKey() const { return pkey; }
+
+    // Extract raw 32-byte secret from private key
+    void GetSecretBytes(unsigned char vch[32]) const;
+
+    // Set secret from raw 32 bytes and regenerate public key
+    void SetSecretBytes(const unsigned char vch[32]);
+
+    // Get/Set DER-encoded private key
+    void GetPrivKey(CPrivKey &privkey, bool fCompressed);
+    bool SetPrivKey(const CPrivKey &privkey, bool fSkipCheck = false);
+
+    // Get/Set public key
+    void GetPubKey(CPubKey &pubkey, bool fCompressed);
+    bool SetPubKey(const CPubKey &pubkey);
+
+    // ECDSA signing using EVP_DigestSign (OpenSSL 3.x)
+    bool Sign(const uint256 &hash, std::vector<unsigned char>& vchSig);
+
+    // ECDSA verification using EVP_DigestVerify (OpenSSL 3.x)
+    bool Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig);
+
+    // Create compact signature (65 bytes) with recovery ID
+    bool SignCompact(const uint256 &hash, unsigned char *p64, int &rec);
+
+    // Recover public key from compact signature
+    // This is only slightly more CPU intensive than just verifying it.
+    // If this function succeeds, the recovered public key is guaranteed to be valid
+    bool Recover(const uint256 &hash, const unsigned char *p64, int rec);
+
+    // Tweak private key for BIP32 derivation
+    static bool TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], const unsigned char vchTweak[32]);
+
+    // Tweak public key for BIP32 derivation
+    bool TweakPublic(const unsigned char vchTweak[32]);
+};
+
+/** An encapsulated private key. */
 class CKey
 {
 protected:
-    EC_KEY* pkey;
-    bool fSet;
-    bool fCompressedPubKey;
-
-private:
-    // Whether this private key is valid. We check for correctness when modifying the key
-    // data, so fValid should always correspond to the actual state.
     bool fValid;
-    // Whether the public key corresponding to this private key is (to be) compressed.
     bool fCompressed;
-    // The actual byte data
+    // The actual 32-byte private key data
     unsigned char vch[32];
-    // Check whether the 32-byte array pointed to be vch is valid keydata.
-	bool static Check(const unsigned char *vch);
+
+    // Check whether the 32-byte array pointed to by vch is valid keydata.
+    static bool Check(const unsigned char *vch);
 
 public:
-    void SetCompressedPubKey();
-    void SetUnCompressedPubKey();
-
     // Construct an invalid private key.
     CKey();
 
@@ -260,7 +302,7 @@ public:
                memcmp(&a.vch[0], &b.vch[0], a.size()) == 0;
     }
 
-	// Initialize using begin and end iterators to byte data.
+    // Initialize using begin and end iterators to byte data.
     template<typename T>
     void Set(const T pbegin, const T pend, bool fCompressedIn) {
         if (pend - pbegin != 32) {
@@ -276,7 +318,7 @@ public:
         }
     }
 
-	// Simple read-only vector-like interface.
+    // Simple read-only vector-like interface.
     unsigned int size() const { return (fValid ? 32 : 0); }
     const unsigned char *begin() const { return vch; }
     const unsigned char *end() const { return vch + size(); }
@@ -287,11 +329,13 @@ public:
     // Check whether the public key corresponding to this private key is (to be) compressed.
     bool IsCompressed() const;
 
+    // Set public key (for validate)
     bool SetPubKey(const CPubKey& vchPubKey);
 
     // Initialize from a CPrivKey (serialized OpenSSL private key data).
-    bool SetPrivKey(const CPrivKey& vchPrivKey,bool fCompressed);
+    bool SetPrivKey(const CPrivKey& vchPrivKey, bool fCompressed);
 
+    // Set from 32-byte secret
     bool SetSecret(const CSecret& vchSecret, bool fCompressed = false);
     CSecret GetSecret(bool &fCompressed) const;
 
@@ -307,14 +351,14 @@ public:
     CPubKey GetPubKey() const;
 
     // Create a DER-serialized signature.
-    bool Sign(uint256 hash, std::vector<unsigned char>& vchSig)const ;
+    bool Sign(uint256 hash, std::vector<unsigned char>& vchSig) const;
 
     // Create a compact signature (65 bytes), which allows reconstructing the used public key.
     // The format is one header byte, followed by two times 32 bytes for the serialized r and s values.
     // The header byte: 0x1B = first key with even y, 0x1C = first key with odd y,
     //                  0x1D = second key with even y, 0x1E = second key with odd y,
     //                  add 0x04 for compressed keys.
-    bool SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const ;
+    bool SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const;
 
     // Derive BIP32 child key.
     bool Derive(CKey& keyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const;
@@ -327,55 +371,6 @@ public:
 
     // Ensure that signature is DER-encoded
     static bool ReserealizeSignature(std::vector<unsigned char>& vchSig);
-
-    // Why does this exist?
-    EC_KEY* GetECKey();
-};
-
-// RAII Wrapper around OpenSSL's EC_KEY
-class CECKey {
-private:
-    EC_KEY *pkey;
-
-public:
-    CECKey() {
-        pkey = EC_KEY_new_by_curve_name(NID_secp256k1);
-        assert(pkey != NULL);
-    }
-
-    ~CECKey() {
-        EC_KEY_free(pkey);
-    }
-
-    EC_KEY* GetECKey() {return pkey;};
-
-    void GetSecretBytes(unsigned char vch[32]) const;
-
-    void SetSecretBytes(const unsigned char vch[32]);
-
-    void GetPrivKey(CPrivKey &privkey, bool fCompressed);
-
-    bool SetPrivKey(const CPrivKey &privkey, bool fSkipCheck=false);
-
-    void GetPubKey(CPubKey &pubkey, bool fCompressed);
-
-    bool SetPubKey(const CPubKey &pubkey);
-
-    bool Sign(const uint256 &hash, std::vector<unsigned char>& vchSig);
-
-    bool Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig);
-
-    bool SignCompact(const uint256 &hash, unsigned char *p64, int &rec);
-
-    // reconstruct public key from a compact signature
-    // This is only slightly more CPU intensive than just verifying it.
-    // If this function succeeds, the recovered public key is guaranteed to be valid
-    // (the signature is a valid signature of the given data for that key)
-    bool Recover(const uint256 &hash, const unsigned char *p64, int rec);
-
-    static bool TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], const unsigned char vchTweak[32]);
-
-    bool TweakPublic(const unsigned char vchTweak[32]);
 };
 
 struct CExtPubKey {
@@ -417,6 +412,17 @@ struct CExtKey {
 /** Check that required EC support is available at runtime */
 bool ECC_InitSanityCheck(void);
 
+/** Tweak a secret key for BIP32 derivation */
 bool TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], const unsigned char vchTweak[32]);
 
-#endif
+/**
+ * Perform ECDSA key recovery (see SEC1 4.1.6) for curves over (mod p)-fields
+ * recid selects which key is recovered
+ * if check is non-zero, additional checks are performed
+ * Returns the recovered public key in EVP_PKEY format
+ */
+EVP_PKEY* ECDSA_recover_key(const unsigned char *msg, int msglen, 
+                             const unsigned char *sig_r, const unsigned char *sig_s,
+                             int recid, int check);
+
+#endif // BITCOIN_KEY_H

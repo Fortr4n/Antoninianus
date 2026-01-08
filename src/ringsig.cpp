@@ -67,7 +67,7 @@ int finaliseRingSigs()
 
     BN_free(bnOrder);
     BN_CTX_free(bnCtx);
-    EC_GROUP_clear_free(ecGrp);
+    EC_GROUP_free(ecGrp);
 
     ecGrp   = NULL;
     bnCtx   = NULL;

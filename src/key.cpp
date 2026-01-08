@@ -1,178 +1,247 @@
-// Copyright (c) 2018 Denarius developers
+// Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2017-2021 The Denarius developers
+// Copyright (c) 2024 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <map>
+#include <string.h>
 
+#include <openssl/evp.h>
+#include <openssl/ec.h>
 #include <openssl/ecdsa.h>
+#include <openssl/bn.h>
 #include <openssl/rand.h>
 #include <openssl/obj_mac.h>
-#include <openssl/bn.h>
-#include "openssl_compat.h"
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
+#include <openssl/encoder.h>
+#include <openssl/decoder.h>
 
 #include "key.h"
 #include "hash.h"
 
 // Order of secp256k1's generator minus 1.
-const unsigned char vchMaxModOrder[32] = {
-        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,
-        0xBA,0xAE,0xDC,0xE6,0xAF,0x48,0xA0,0x3B,
-        0xBF,0xD2,0x5E,0x8C,0xD0,0x36,0x41,0x40
+static const unsigned char vchMaxModOrder[32] = {
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,
+    0xBA,0xAE,0xDC,0xE6,0xAF,0x48,0xA0,0x3B,
+    0xBF,0xD2,0x5E,0x8C,0xD0,0x36,0x41,0x40
 };
 
 // Half of the order of secp256k1's generator minus 1.
-const unsigned char vchMaxModHalfOrder[32] = {
-        0x7F,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-        0x5D,0x57,0x6E,0x73,0x57,0xA4,0x50,0x1D,
-        0xDF,0xE9,0x2F,0x46,0x68,0x1B,0x20,0xA0
+static const unsigned char vchMaxModHalfOrder[32] = {
+    0x7F,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0x5D,0x57,0x6E,0x73,0x57,0xA4,0x50,0x1D,
+    0xDF,0xE9,0x2F,0x46,0x68,0x1B,0x20,0xA0
 };
 
-const unsigned char vchZero[0] = {};
+// secp256k1 curve order
+static const unsigned char secp256k1_order[32] = {
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,
+    0xBA,0xAE,0xDC,0xE6,0xAF,0x48,0xA0,0x3B,
+    0xBF,0xD2,0x5E,0x8C,0xD0,0x36,0x41,0x41
+};
 
+static const unsigned char vchZero[1] = {0};
 
-// Generate a private key from just the secret parameter
-int EC_KEY_regenerate_key(EC_KEY *eckey, BIGNUM *priv_key)
-{
-    int ok = 0;
-    BN_CTX *ctx = NULL;
-    EC_POINT *pub_key = NULL;
-
-    if (!eckey) return 0;
-
-    const EC_GROUP *group = EC_KEY_get0_group(eckey);
-
-    if ((ctx = BN_CTX_new()) == NULL)
+/**
+ * Create an EVP_PKEY for secp256k1 from raw 32-byte private key
+ */
+static EVP_PKEY* CreateEVPKeyFromSecret(const unsigned char secret[32]) {
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    OSSL_PARAM_BLD *param_bld = NULL;
+    OSSL_PARAM *params = NULL;
+    BIGNUM *priv_bn = NULL;
+    EC_GROUP *group = NULL;
+    EC_POINT *pub_point = NULL;
+    BN_CTX *bn_ctx = NULL;
+    unsigned char pub_key[65];
+    size_t pub_len = 65;
+    
+    // Create the private key BIGNUM
+    priv_bn = BN_bin2bn(secret, 32, NULL);
+    if (!priv_bn) goto err;
+    
+    // Create EC_GROUP for secp256k1
+    group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    if (!group) goto err;
+    
+    // Create the public key point
+    pub_point = EC_POINT_new(group);
+    if (!pub_point) goto err;
+    
+    bn_ctx = BN_CTX_new();
+    if (!bn_ctx) goto err;
+    
+    // Calculate public key: pub = secret * G
+    if (!EC_POINT_mul(group, pub_point, priv_bn, NULL, NULL, bn_ctx))
         goto err;
-
-    pub_key = EC_POINT_new(group);
-
-    if (pub_key == NULL)
+    
+    // Convert public key to uncompressed format
+    pub_len = EC_POINT_point2oct(group, pub_point, POINT_CONVERSION_UNCOMPRESSED,
+                                  pub_key, sizeof(pub_key), bn_ctx);
+    if (pub_len == 0) goto err;
+    
+    // Build parameters for EVP_PKEY
+    param_bld = OSSL_PARAM_BLD_new();
+    if (!param_bld) goto err;
+    
+    if (!OSSL_PARAM_BLD_push_utf8_string(param_bld, OSSL_PKEY_PARAM_GROUP_NAME, 
+                                          SN_secp256k1, 0))
         goto err;
-
-    if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx))
+    if (!OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, priv_bn))
         goto err;
+    if (!OSSL_PARAM_BLD_push_octet_string(param_bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                           pub_key, pub_len))
+        goto err;
+    
+    params = OSSL_PARAM_BLD_to_param(param_bld);
+    if (!params) goto err;
+    
+    // Create EVP_PKEY context and key
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    if (!ctx) goto err;
+    
+    if (EVP_PKEY_fromdata_init(ctx) <= 0)
+        goto err;
+    
+    if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEYPAIR, params) <= 0) {
+        pkey = NULL;
+        goto err;
+    }
 
-    EC_KEY_set_private_key(eckey,priv_key);
-    EC_KEY_set_public_key(eckey,pub_key);
-
-    ok = 1;
-
-    err:
-
-    if (pub_key)
-        EC_POINT_free(pub_key);
-    if (ctx != NULL)
-        BN_CTX_free(ctx);
-
-    return(ok);
+err:
+    OSSL_PARAM_free(params);
+    OSSL_PARAM_BLD_free(param_bld);
+    EVP_PKEY_CTX_free(ctx);
+    BN_free(priv_bn);
+    EC_POINT_free(pub_point);
+    EC_GROUP_free(group);
+    BN_CTX_free(bn_ctx);
+    
+    return pkey;
 }
 
-bool ECC_InitSanityCheck() {
-    EC_KEY *pkey = EC_KEY_new_by_curve_name(NID_secp256k1);
-    if(pkey == NULL)
-        return false;
-    EC_KEY_free(pkey);
+/**
+ * Create an EVP_PKEY for secp256k1 from raw public key bytes
+ */
+static EVP_PKEY* CreateEVPKeyFromPubKey(const unsigned char* pubkey, size_t len) {
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    OSSL_PARAM_BLD *param_bld = NULL;
+    OSSL_PARAM *params = NULL;
+    
+    if (len != 33 && len != 65)
+        return NULL;
+    
+    // Build parameters for EVP_PKEY (public key only)
+    param_bld = OSSL_PARAM_BLD_new();
+    if (!param_bld) goto err;
+    
+    if (!OSSL_PARAM_BLD_push_utf8_string(param_bld, OSSL_PKEY_PARAM_GROUP_NAME,
+                                          SN_secp256k1, 0))
+        goto err;
+    if (!OSSL_PARAM_BLD_push_octet_string(param_bld, OSSL_PKEY_PARAM_PUB_KEY,
+                                           pubkey, len))
+        goto err;
+    
+    params = OSSL_PARAM_BLD_to_param(param_bld);
+    if (!params) goto err;
+    
+    // Create EVP_PKEY context and key
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    if (!ctx) goto err;
+    
+    if (EVP_PKEY_fromdata_init(ctx) <= 0)
+        goto err;
+    
+    if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+        pkey = NULL;
+        goto err;
+    }
 
-    // TODO Is there more EC functionality that could be missing?
+err:
+    OSSL_PARAM_free(params);
+    OSSL_PARAM_BLD_free(param_bld);
+    EVP_PKEY_CTX_free(ctx);
+    
+    return pkey;
+}
+
+/**
+ * Extract raw 32-byte secret from EVP_PKEY
+ */
+static bool GetSecretFromEVPKey(const EVP_PKEY *pkey, unsigned char vch[32]) {
+    BIGNUM *priv_bn = NULL;
+    int ret = 0;
+    
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &priv_bn))
+        return false;
+    
+    memset(vch, 0, 32);
+    int nBytes = BN_num_bytes(priv_bn);
+    if (nBytes <= 32) {
+        BN_bn2bin(priv_bn, &vch[32 - nBytes]);
+        ret = 1;
+    }
+    
+    BN_clear_free(priv_bn);
+    return ret == 1;
+}
+
+/**
+ * Extract public key from EVP_PKEY
+ */
+static bool GetPubKeyFromEVPKey(const EVP_PKEY *pkey, unsigned char* out, size_t* outlen, bool compressed) {
+    size_t len = 0;
+    unsigned char buf[65];
+    
+    if (!EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, 
+                                          buf, sizeof(buf), &len))
+        return false;
+    
+    if (compressed && len == 65) {
+        // Convert uncompressed to compressed format
+        out[0] = (buf[64] & 1) ? 0x03 : 0x02;
+        memcpy(out + 1, buf + 1, 32);
+        *outlen = 33;
+    } else {
+        memcpy(out, buf, len);
+        *outlen = len;
+    }
+    
     return true;
 }
 
-// Perform ECDSA key recovery (see SEC1 4.1.6) for curves over (mod p)-fields
-// recid selects which key is recovered
-// if check is non-zero, additional checks are performed
-int ECDSA_SIG_recover_key_GFp(EC_KEY *eckey, ECDSA_SIG *ecsig, const unsigned char *msg, int msglen, int recid, int check)
-{
-    if (!eckey) return 0;
-
-    int ret = 0;
-    BN_CTX *ctx = NULL;
-
-    BIGNUM *x = NULL;
-    BIGNUM *e = NULL;
-    BIGNUM *order = NULL;
-    BIGNUM *sor = NULL;
-    BIGNUM *eor = NULL;
-    BIGNUM *field = NULL;
-    EC_POINT *R = NULL;
-    EC_POINT *O = NULL;
-    EC_POINT *Q = NULL;
-    BIGNUM *rr = NULL;
-    BIGNUM *zero = NULL;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#else
-    const BIGNUM *r = NULL;
-    const BIGNUM *s = NULL;
-#endif
-    int n = 0;
-    int i = recid / 2;
-
-    const EC_GROUP *group = EC_KEY_get0_group(eckey);
-    if ((ctx = BN_CTX_new()) == NULL) { ret = -1; goto err; }
-    BN_CTX_start(ctx);
-    order = BN_CTX_get(ctx);
-    if (!EC_GROUP_get_order(group, order, ctx)) { ret = -2; goto err; }
-    x = BN_CTX_get(ctx);
-    if (!BN_copy(x, order)) { ret=-1; goto err; }
-    if (!BN_mul_word(x, i)) { ret=-1; goto err; }
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    if (!BN_add(x, x, ecsig->r)) { ret=-1; goto err; }
-#else
-    ECDSA_SIG_get0(ecsig, &r, &s);
-    if (!BN_add(x, x, r)) { ret=-1; goto err; }
-#endif
-    field = BN_CTX_get(ctx);
-    if (!EC_GROUP_get_curve_GFp(group, field, NULL, NULL, ctx)) { ret=-2; goto err; }
-    if (BN_cmp(x, field) >= 0) { ret=0; goto err; }
-    if ((R = EC_POINT_new(group)) == NULL) { ret = -2; goto err; }
-    if (!EC_POINT_set_compressed_coordinates_GFp(group, R, x, recid % 2, ctx)) { ret=0; goto err; }
-    if (check)
-    {
-        if ((O = EC_POINT_new(group)) == NULL) { ret = -2; goto err; }
-        if (!EC_POINT_mul(group, O, NULL, R, order, ctx)) { ret=-2; goto err; }
-        if (!EC_POINT_is_at_infinity(group, O)) { ret = 0; goto err; }
-    }
-    if ((Q = EC_POINT_new(group)) == NULL) { ret = -2; goto err; }
-    n = EC_GROUP_get_degree(group);
-    e = BN_CTX_get(ctx);
-    if (!BN_bin2bn(msg, msglen, e)) { ret=-1; goto err; }
-    if (8*msglen > n) BN_rshift(e, e, 8-(n & 7));
-    zero = BN_CTX_get(ctx);
-    if (!BN_zero(zero)) { ret=-1; goto err; }
-    if (!BN_mod_sub(e, zero, e, order, ctx)) { ret=-1; goto err; }
-    rr = BN_CTX_get(ctx);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    if (!BN_mod_inverse(rr, ecsig->r, order, ctx)) { ret=-1; goto err; }
-#else
-    if (!BN_mod_inverse(rr, r, order, ctx)) { ret=-1; goto err; } //Was ->s?
-#endif
-    sor = BN_CTX_get(ctx);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    if (!BN_mod_mul(sor, ecsig->s, rr, order, ctx)) { ret=-1; goto err; }
-#else
-    if (!BN_mod_mul(sor, s, rr, order, ctx)) { ret=-1; goto err; }
-#endif
-    eor = BN_CTX_get(ctx);
-    if (!BN_mod_mul(eor, e, rr, order, ctx)) { ret=-1; goto err; }
-    if (!EC_POINT_mul(group, Q, eor, R, sor, ctx)) { ret=-2; goto err; }
-    if (!EC_KEY_set_public_key(eckey, Q)) { ret=-2; goto err; }
-
-    ret = 1;
-
-    err:
-    if (ctx) {
-        BN_CTX_end(ctx);
-        BN_CTX_free(ctx);
-    }
-    if (R != NULL) EC_POINT_free(R);
-    if (O != NULL) EC_POINT_free(O);
-    if (Q != NULL) EC_POINT_free(Q);
-    return ret;
+/**
+ * BIP32 HMAC-SHA512 hash function
+ */
+static void BIP32Hash(const unsigned char chainCode[32], unsigned int nChild, 
+                      unsigned char header, const unsigned char data[32], 
+                      unsigned char output[64]) {
+    unsigned char num[4];
+    num[0] = (nChild >> 24) & 0xFF;
+    num[1] = (nChild >> 16) & 0xFF;
+    num[2] = (nChild >>  8) & 0xFF;
+    num[3] = (nChild >>  0) & 0xFF;
+    HMAC_SHA512_CTX ctx;
+    HMAC_SHA512_Init(&ctx, chainCode, 32);
+    HMAC_SHA512_Update(&ctx, &header, 1);
+    HMAC_SHA512_Update(&ctx, data, 32);
+    HMAC_SHA512_Update(&ctx, num, 4);
+    HMAC_SHA512_Final(output, &ctx);
 }
 
-int CompareBigEndian(const unsigned char *c1, size_t c1len, const unsigned char *c2, size_t c2len) {
+/**
+ * Compare two big-endian byte arrays
+ */
+static int CompareBigEndian(const unsigned char *c1, size_t c1len, 
+                            const unsigned char *c2, size_t c2len) {
     while (c1len > c2len) {
         if (*c1)
             return 1;
@@ -197,133 +266,571 @@ int CompareBigEndian(const unsigned char *c1, size_t c1len, const unsigned char 
     return 0;
 }
 
-void static BIP32Hash(const unsigned char chainCode[32], unsigned int nChild, unsigned char header, const unsigned char data[32], unsigned char output[64]) {
-    unsigned char num[4];
-    num[0] = (nChild >> 24) & 0xFF;
-    num[1] = (nChild >> 16) & 0xFF;
-    num[2] = (nChild >>  8) & 0xFF;
-    num[3] = (nChild >>  0) & 0xFF;
-    HMAC_SHA512_CTX ctx;
-    HMAC_SHA512_Init(&ctx, chainCode, 32);
-    HMAC_SHA512_Update(&ctx, &header, 1);
-    HMAC_SHA512_Update(&ctx, data, 32);
-    HMAC_SHA512_Update(&ctx, num, 4);
-    HMAC_SHA512_Final(output, &ctx);
+// ============================================================================
+// ECC_InitSanityCheck
+// ============================================================================
+
+bool ECC_InitSanityCheck() {
+    // Test that we can create a secp256k1 key
+    unsigned char secret[32];
+    RAND_bytes(secret, 32);
+    
+    EVP_PKEY *pkey = CreateEVPKeyFromSecret(secret);
+    if (!pkey)
+        return false;
+    
+    EVP_PKEY_free(pkey);
+    OPENSSL_cleanse(secret, 32);
+    return true;
 }
 
-///
-/// CKey
-///
+// ============================================================================
+// ECDSA Key Recovery (SEC1 4.1.6)
+// ============================================================================
 
-void CKey::SetCompressedPubKey()
-{
-    EC_KEY_set_conv_form(pkey, POINT_CONVERSION_COMPRESSED);
-    fCompressedPubKey = true;
+EVP_PKEY* ECDSA_recover_key(const unsigned char *msg, int msglen,
+                             const unsigned char *sig_r, const unsigned char *sig_s,
+                             int recid, int check) {
+    EVP_PKEY *pkey = NULL;
+    BN_CTX *ctx = NULL;
+    EC_GROUP *group = NULL;
+    EC_POINT *R = NULL, *O = NULL, *Q = NULL;
+    BIGNUM *x = NULL, *e = NULL, *order = NULL, *field = NULL;
+    BIGNUM *sor = NULL, *eor = NULL, *rr = NULL, *zero = NULL;
+    BIGNUM *r = NULL, *s = NULL;
+    int ret = 0;
+    int i = recid / 2;
+    
+    ctx = BN_CTX_new();
+    if (!ctx) goto err;
+    BN_CTX_start(ctx);
+    
+    group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    if (!group) goto err;
+    
+    order = BN_CTX_get(ctx);
+    if (!EC_GROUP_get_order(group, order, ctx)) goto err;
+    
+    // Reconstruct r from signature
+    r = BN_CTX_get(ctx);
+    BN_bin2bn(sig_r, 32, r);
+    
+    s = BN_CTX_get(ctx);
+    BN_bin2bn(sig_s, 32, s);
+    
+    // Calculate x = r + i * order
+    x = BN_CTX_get(ctx);
+    if (!BN_copy(x, order)) goto err;
+    if (!BN_mul_word(x, i)) goto err;
+    if (!BN_add(x, x, r)) goto err;
+    
+    field = BN_CTX_get(ctx);
+    if (!EC_GROUP_get_curve(group, field, NULL, NULL, ctx)) goto err;
+    if (BN_cmp(x, field) >= 0) goto err;
+    
+    // Recover R point
+    R = EC_POINT_new(group);
+    if (!R) goto err;
+    if (!EC_POINT_set_compressed_coordinates(group, R, x, recid % 2, ctx))
+        goto err;
+    
+    // Verify R is on curve and has correct order if check is set
+    if (check) {
+        O = EC_POINT_new(group);
+        if (!O) goto err;
+        if (!EC_POINT_mul(group, O, NULL, R, order, ctx)) goto err;
+        if (!EC_POINT_is_at_infinity(group, O)) goto err;
+    }
+    
+    // Calculate Q = r^-1 * (s*R - e*G)
+    Q = EC_POINT_new(group);
+    if (!Q) goto err;
+    
+    int n = EC_GROUP_get_degree(group);
+    e = BN_CTX_get(ctx);
+    if (!BN_bin2bn(msg, msglen, e)) goto err;
+    if (8 * msglen > n) BN_rshift(e, e, 8 - (n & 7));
+    
+    zero = BN_CTX_get(ctx);
+    BN_zero(zero);
+    if (!BN_mod_sub(e, zero, e, order, ctx)) goto err;
+    
+    rr = BN_CTX_get(ctx);
+    if (!BN_mod_inverse(rr, r, order, ctx)) goto err;
+    
+    sor = BN_CTX_get(ctx);
+    if (!BN_mod_mul(sor, s, rr, order, ctx)) goto err;
+    
+    eor = BN_CTX_get(ctx);
+    if (!BN_mod_mul(eor, e, rr, order, ctx)) goto err;
+    
+    if (!EC_POINT_mul(group, Q, eor, R, sor, ctx)) goto err;
+    
+    // Convert Q to public key bytes
+    unsigned char pub_key[65];
+    size_t pub_len = EC_POINT_point2oct(group, Q, POINT_CONVERSION_UNCOMPRESSED,
+                                         pub_key, sizeof(pub_key), ctx);
+    if (pub_len == 0) goto err;
+    
+    // Create EVP_PKEY from recovered public key
+    pkey = CreateEVPKeyFromPubKey(pub_key, pub_len);
+    
+err:
+    EC_POINT_free(R);
+    EC_POINT_free(O);
+    EC_POINT_free(Q);
+    EC_GROUP_free(group);
+    if (ctx) {
+        BN_CTX_end(ctx);
+        BN_CTX_free(ctx);
+    }
+    
+    return pkey;
 }
 
-void CKey::SetUnCompressedPubKey()
-{
-    EC_KEY_set_conv_form(pkey, POINT_CONVERSION_UNCOMPRESSED);
-    fCompressedPubKey = false;
+// ============================================================================
+// CECKey Implementation
+// ============================================================================
+
+CECKey::CECKey() : pkey(NULL) {
 }
+
+CECKey::~CECKey() {
+    if (pkey)
+        EVP_PKEY_free(pkey);
+}
+
+CECKey::CECKey(CECKey&& other) noexcept : pkey(other.pkey) {
+    other.pkey = NULL;
+}
+
+CECKey& CECKey::operator=(CECKey&& other) noexcept {
+    if (this != &other) {
+        if (pkey)
+            EVP_PKEY_free(pkey);
+        pkey = other.pkey;
+        other.pkey = NULL;
+    }
+    return *this;
+}
+
+void CECKey::GetSecretBytes(unsigned char vch[32]) const {
+    if (!pkey)
+        throw key_error("CECKey::GetSecretBytes: key not set");
+    
+    if (!GetSecretFromEVPKey(pkey, vch))
+        throw key_error("CECKey::GetSecretBytes: failed to extract secret");
+}
+
+void CECKey::SetSecretBytes(const unsigned char vch[32]) {
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+    }
+    
+    pkey = CreateEVPKeyFromSecret(vch);
+    if (!pkey)
+        throw key_error("CECKey::SetSecretBytes: failed to create key");
+}
+
+void CECKey::GetPrivKey(CPrivKey &privkey, bool fCompressed) {
+    if (!pkey)
+        throw key_error("CECKey::GetPrivKey: key not set");
+    
+    // Encode private key to DER format
+    unsigned char *der = NULL;
+    int der_len = 0;
+    
+    // Use OSSL_ENCODER for DER output
+    OSSL_ENCODER_CTX *ectx = OSSL_ENCODER_CTX_new_for_pkey(pkey, 
+        EVP_PKEY_KEYPAIR, "DER", "PrivateKeyInfo", NULL);
+    if (!ectx)
+        throw key_error("CECKey::GetPrivKey: failed to create encoder context");
+    
+    size_t len = 0;
+    if (!OSSL_ENCODER_to_data(ectx, &der, &len)) {
+        OSSL_ENCODER_CTX_free(ectx);
+        throw key_error("CECKey::GetPrivKey: failed to encode private key");
+    }
+    
+    privkey.resize(len);
+    memcpy(&privkey[0], der, len);
+    
+    OPENSSL_free(der);
+    OSSL_ENCODER_CTX_free(ectx);
+}
+
+bool CECKey::SetPrivKey(const CPrivKey &privkey, bool fSkipCheck) {
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+    }
+    
+    const unsigned char *p = &privkey[0];
+    size_t len = privkey.size();
+    
+    // Decode DER private key using OSSL_DECODER
+    OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&pkey, "DER", 
+        "PrivateKeyInfo", "EC", EVP_PKEY_KEYPAIR, NULL, NULL);
+    if (!dctx)
+        return false;
+    
+    if (!OSSL_DECODER_from_data(dctx, &p, &len)) {
+        OSSL_DECODER_CTX_free(dctx);
+        return false;
+    }
+    
+    OSSL_DECODER_CTX_free(dctx);
+    
+    if (!fSkipCheck && !pkey)
+        return false;
+    
+    return true;
+}
+
+void CECKey::GetPubKey(CPubKey &pubkey, bool fCompressed) {
+    if (!pkey)
+        throw key_error("CECKey::GetPubKey: key not set");
+    
+    unsigned char buf[65];
+    size_t len = 0;
+    
+    if (!GetPubKeyFromEVPKey(pkey, buf, &len, fCompressed))
+        throw key_error("CECKey::GetPubKey: failed to get public key");
+    
+    pubkey.Set(buf, buf + len);
+}
+
+bool CECKey::SetPubKey(const CPubKey &pubkey) {
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+    }
+    
+    pkey = CreateEVPKeyFromPubKey(pubkey.begin(), pubkey.size());
+    return pkey != NULL;
+}
+
+bool CECKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig) {
+    if (!pkey)
+        return false;
+    
+    vchSig.clear();
+    
+    // Create signing context
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx)
+        return false;
+    
+    // Initialize for signing (NULL digest for raw signing)
+    EVP_PKEY_CTX *pctx = NULL;
+    if (EVP_DigestSignInit_ex(mdctx, &pctx, NULL, NULL, NULL, pkey, NULL) <= 0) {
+        EVP_MD_CTX_free(mdctx);
+        return false;
+    }
+    
+    // Determine signature size
+    size_t siglen = 0;
+    if (EVP_DigestSign(mdctx, NULL, &siglen, (unsigned char*)&hash, sizeof(hash)) <= 0) {
+        EVP_MD_CTX_free(mdctx);
+        return false;
+    }
+    
+    vchSig.resize(siglen);
+    
+    // Sign the hash
+    if (EVP_DigestSign(mdctx, &vchSig[0], &siglen, (unsigned char*)&hash, sizeof(hash)) <= 0) {
+        EVP_MD_CTX_free(mdctx);
+        vchSig.clear();
+        return false;
+    }
+    
+    vchSig.resize(siglen);
+    EVP_MD_CTX_free(mdctx);
+    
+    // Enforce low S values (BIP 62)
+    // Parse the DER signature to get r and s
+    const unsigned char* p = &vchSig[0];
+    ECDSA_SIG *sig = d2i_ECDSA_SIG(NULL, &p, vchSig.size());
+    if (sig) {
+        const BIGNUM *r_bn, *s_bn;
+        ECDSA_SIG_get0(sig, &r_bn, &s_bn);
+        
+        BIGNUM *order = BN_new();
+        BIGNUM *halforder = BN_new();
+        BN_bin2bn(secp256k1_order, 32, order);
+        BN_rshift1(halforder, order);
+        
+        if (BN_cmp(s_bn, halforder) > 0) {
+            // s = order - s
+            BIGNUM *new_s = BN_new();
+            BN_sub(new_s, order, s_bn);
+            ECDSA_SIG_set0(sig, BN_dup(r_bn), new_s);
+            
+            // Re-encode the signature
+            int newlen = i2d_ECDSA_SIG(sig, NULL);
+            vchSig.resize(newlen);
+            unsigned char *pos = &vchSig[0];
+            i2d_ECDSA_SIG(sig, &pos);
+        }
+        
+        BN_free(order);
+        BN_free(halforder);
+        ECDSA_SIG_free(sig);
+    }
+    
+    return true;
+}
+
+bool CECKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) {
+    if (!pkey)
+        return false;
+    
+    // Create verification context
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx)
+        return false;
+    
+    // Initialize for verification (NULL digest for raw verification)
+    EVP_PKEY_CTX *pctx = NULL;
+    if (EVP_DigestVerifyInit_ex(mdctx, &pctx, NULL, NULL, NULL, pkey, NULL) <= 0) {
+        EVP_MD_CTX_free(mdctx);
+        return false;
+    }
+    
+    // Verify the signature
+    int ret = EVP_DigestVerify(mdctx, &vchSig[0], vchSig.size(), 
+                                (unsigned char*)&hash, sizeof(hash));
+    EVP_MD_CTX_free(mdctx);
+    
+    return ret == 1;
+}
+
+bool CECKey::SignCompact(const uint256 &hash, unsigned char *p64, int &rec) {
+    if (!pkey)
+        return false;
+    
+    std::vector<unsigned char> vchSig;
+    if (!Sign(hash, vchSig))
+        return false;
+    
+    // Parse DER signature
+    const unsigned char* p = &vchSig[0];
+    ECDSA_SIG *sig = d2i_ECDSA_SIG(NULL, &p, vchSig.size());
+    if (!sig)
+        return false;
+    
+    const BIGNUM *r_bn, *s_bn;
+    ECDSA_SIG_get0(sig, &r_bn, &s_bn);
+    
+    int nBitsR = BN_num_bits(r_bn);
+    int nBitsS = BN_num_bits(s_bn);
+    
+    if (nBitsR > 256 || nBitsS > 256) {
+        ECDSA_SIG_free(sig);
+        return false;
+    }
+    
+    memset(p64, 0, 64);
+    BN_bn2bin(r_bn, &p64[32 - (nBitsR + 7) / 8]);
+    BN_bn2bin(s_bn, &p64[64 - (nBitsS + 7) / 8]);
+    
+    // Find the recovery parameter
+    CPubKey pubkey;
+    GetPubKey(pubkey, true);
+    
+    bool fOk = false;
+    for (int i = 0; i < 4; i++) {
+        EVP_PKEY *recovered = ECDSA_recover_key((unsigned char*)&hash, sizeof(hash),
+                                                 &p64[0], &p64[32], i, 1);
+        if (recovered) {
+            unsigned char rec_pub[65];
+            size_t rec_len = 0;
+            if (GetPubKeyFromEVPKey(recovered, rec_pub, &rec_len, true)) {
+                CPubKey pubkeyRec(rec_pub, rec_pub + rec_len);
+                if (pubkeyRec == pubkey) {
+                    rec = i;
+                    fOk = true;
+                }
+            }
+            EVP_PKEY_free(recovered);
+            if (fOk) break;
+        }
+    }
+    
+    ECDSA_SIG_free(sig);
+    return fOk;
+}
+
+bool CECKey::Recover(const uint256 &hash, const unsigned char *p64, int rec) {
+    if (rec < 0 || rec >= 4)
+        return false;
+    
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+    }
+    
+    pkey = ECDSA_recover_key((unsigned char*)&hash, sizeof(hash),
+                              &p64[0], &p64[32], rec, 0);
+    return pkey != NULL;
+}
+
+bool CECKey::TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], 
+                          const unsigned char vchTweak[32]) {
+    BN_CTX *ctx = BN_CTX_new();
+    if (!ctx) return false;
+    
+    BN_CTX_start(ctx);
+    BIGNUM *bnSecret = BN_CTX_get(ctx);
+    BIGNUM *bnTweak = BN_CTX_get(ctx);
+    BIGNUM *bnOrder = BN_CTX_get(ctx);
+    
+    BN_bin2bn(secp256k1_order, 32, bnOrder);
+    BN_bin2bn(vchTweak, 32, bnTweak);
+    
+    bool ret = true;
+    if (BN_cmp(bnTweak, bnOrder) >= 0)
+        ret = false; // extremely unlikely
+    
+    if (ret) {
+        BN_bin2bn(vchSecretIn, 32, bnSecret);
+        BN_add(bnSecret, bnSecret, bnTweak);
+        BN_nnmod(bnSecret, bnSecret, bnOrder, ctx);
+        
+        if (BN_is_zero(bnSecret))
+            ret = false; // ridiculously unlikely
+        
+        if (ret) {
+            memset(vchSecretOut, 0, 32);
+            int nBits = BN_num_bits(bnSecret);
+            BN_bn2bin(bnSecret, &vchSecretOut[32 - (nBits + 7) / 8]);
+        }
+    }
+    
+    BN_CTX_end(ctx);
+    BN_CTX_free(ctx);
+    return ret;
+}
+
+bool CECKey::TweakPublic(const unsigned char vchTweak[32]) {
+    if (!pkey)
+        return false;
+    
+    // Get current public key
+    unsigned char pub_key[65];
+    size_t pub_len = 0;
+    if (!EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+                                          pub_key, sizeof(pub_key), &pub_len))
+        return false;
+    
+    // Create EC_GROUP and EC_POINT
+    EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    if (!group) return false;
+    
+    BN_CTX *ctx = BN_CTX_new();
+    if (!ctx) {
+        EC_GROUP_free(group);
+        return false;
+    }
+    
+    EC_POINT *point = EC_POINT_new(group);
+    if (!point) {
+        BN_CTX_free(ctx);
+        EC_GROUP_free(group);
+        return false;
+    }
+    
+    bool ret = false;
+    
+    // Convert public key bytes to point
+    if (EC_POINT_oct2point(group, point, pub_key, pub_len, ctx)) {
+        BIGNUM *bnOrder = BN_new();
+        BIGNUM *bnTweak = BN_new();
+        BIGNUM *bnOne = BN_new();
+        
+        EC_GROUP_get_order(group, bnOrder, ctx);
+        BN_bin2bn(vchTweak, 32, bnTweak);
+        BN_one(bnOne);
+        
+        if (BN_cmp(bnTweak, bnOrder) < 0) {
+            // point = tweak * G + 1 * point
+            EC_POINT_mul(group, point, bnTweak, point, bnOne, ctx);
+            
+            if (!EC_POINT_is_at_infinity(group, point)) {
+                // Convert back to bytes
+                pub_len = EC_POINT_point2oct(group, point, POINT_CONVERSION_UNCOMPRESSED,
+                                              pub_key, sizeof(pub_key), ctx);
+                if (pub_len > 0) {
+                    // Create new EVP_PKEY with tweaked public key
+                    EVP_PKEY_free(pkey);
+                    pkey = CreateEVPKeyFromPubKey(pub_key, pub_len);
+                    ret = (pkey != NULL);
+                }
+            }
+        }
+        
+        BN_free(bnOrder);
+        BN_free(bnTweak);
+        BN_free(bnOne);
+    }
+    
+    EC_POINT_free(point);
+    BN_CTX_free(ctx);
+    EC_GROUP_free(group);
+    
+    return ret;
+}
+
+// ============================================================================
+// CKey Implementation
+// ============================================================================
 
 bool CKey::Check(const unsigned char *vch) {
-    // Do not convert to OpenSSL's data structures for range-checking keys,
-    // it's easy enough to do directly.
-    static const unsigned char vchMax[32] = {
-            0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-            0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,
-            0xBA,0xAE,0xDC,0xE6,0xAF,0x48,0xA0,0x3B,
-            0xBF,0xD2,0x5E,0x8C,0xD0,0x36,0x41,0x40
-    };
     bool fIsZero = true;
-    for (int i=0; i<32 && fIsZero; i++)
+    for (int i = 0; i < 32 && fIsZero; i++)
         if (vch[i] != 0)
             fIsZero = false;
     if (fIsZero)
         return false;
-    for (int i=0; i<32; i++) {
-        if (vch[i] < vchMax[i])
+    for (int i = 0; i < 32; i++) {
+        if (vch[i] < vchMaxModOrder[i])
             return true;
-        if (vch[i] > vchMax[i])
+        if (vch[i] > vchMaxModOrder[i])
             return false;
     }
     return true;
 }
 
-
-// Construct an invalid private key.
-CKey::CKey() : fValid(false)
-{
+CKey::CKey() : fValid(false), fCompressed(false) {
     LockObject(vch);
+    memset(vch, 0, sizeof(vch));
 }
 
-// Copy constructor. This is necessary because of memlocking.
-CKey::CKey(const CKey& b) : fValid(b.fValid), fCompressed(b.fCompressed)
-{
+CKey::CKey(const CKey& b) : fValid(b.fValid), fCompressed(b.fCompressed) {
     LockObject(vch);
     memcpy(vch, b.vch, sizeof(vch));
 }
 
-// Destructor (again necessary because of memlocking).
-CKey::~CKey()
-{
-//    EC_KEY_free(pkey);
+CKey::~CKey() {
+    OPENSSL_cleanse(vch, sizeof(vch));
     UnlockObject(vch);
 }
 
-// Check whether this private key is valid.
-bool CKey::IsValid() const
-{
+bool CKey::IsValid() const {
     return fValid;
 }
 
-// Check whether the public key corresponding to this private key is (to be) compressed.
-bool CKey::IsCompressed() const
-{
+bool CKey::IsCompressed() const {
     return fCompressed;
 }
 
-bool CKey::SetSecret(const CSecret& vchSecret, bool fCompressed)
-{
-    if (pkey != NULL)
-        EC_KEY_free(pkey);
-    pkey = EC_KEY_new_by_curve_name(NID_secp256k1);
-    if (pkey == NULL)
-        throw key_error("CKey::SetSecret() : EC_KEY_new_by_curve_name failed");
-    if (vchSecret.size() != 32)
-        throw key_error("CKey::SetSecret() : secret must be 32 bytes");
-    BIGNUM *bn = BN_bin2bn(&vchSecret[0],32,BN_new());
-    if (bn == NULL)
-        throw key_error("CKey::SetSecret() : BN_bin2bn failed");
-    if (!EC_KEY_regenerate_key(pkey,bn))
-    {
-        BN_clear_free(bn);
-        throw key_error("CKey::SetSecret() : EC_KEY_regenerate_key failed");
-    }
-    BN_clear_free(bn);
-    fSet = true;
-    if (fCompressed || fCompressedPubKey)
-        SetCompressedPubKey();
-    return true;
+bool CKey::SetPubKey(const CPubKey& vchPubKey) {
+    // This function validates that we can load the public key
+    CECKey key;
+    return key.SetPubKey(vchPubKey);
 }
 
-CSecret CKey::GetSecret(bool &fCompressed) const
-{
-    CSecret vchRet;
-    vchRet.resize(32);
-    const BIGNUM *bn = EC_KEY_get0_private_key(pkey);
-    int nBytes = BN_num_bytes(bn);
-    if (bn == NULL)
-        throw key_error("CKey::GetSecret() : EC_KEY_get0_private_key failed");
-    int n=BN_bn2bin(bn,&vchRet[32 - nBytes]);
-    if (n != nBytes)
-        throw key_error("CKey::GetSecret(): BN_bn2bin failed");
-    fCompressed = fCompressedPubKey;
-    return vchRet;
-}
-
-// Initialize from a CPrivKey (serialized OpenSSL private key data).
 bool CKey::SetPrivKey(const CPrivKey &privkey, bool fCompressedIn) {
     CECKey key;
     if (!key.SetPrivKey(privkey))
@@ -334,9 +841,24 @@ bool CKey::SetPrivKey(const CPrivKey &privkey, bool fCompressedIn) {
     return true;
 }
 
-// Generate a new private key using a cryptographic PRNG.
-void CKey::MakeNewKey(bool fCompressedIn)
-{
+bool CKey::SetSecret(const CSecret& vchSecret, bool fCompressedIn) {
+    if (vchSecret.size() != 32)
+        return false;
+    memcpy(vch, &vchSecret[0], 32);
+    fValid = Check(vch);
+    fCompressed = fCompressedIn;
+    return fValid;
+}
+
+CSecret CKey::GetSecret(bool &fCompressedOut) const {
+    CSecret vchRet;
+    vchRet.resize(32);
+    memcpy(&vchRet[0], vch, 32);
+    fCompressedOut = fCompressed;
+    return vchRet;
+}
+
+void CKey::MakeNewKey(bool fCompressedIn) {
     RandAddSeedPerfmon();
     do {
         RAND_bytes(vch, sizeof(vch));
@@ -345,10 +867,7 @@ void CKey::MakeNewKey(bool fCompressedIn)
     fCompressed = fCompressedIn;
 }
 
-// Convert the private key to a CPrivKey (serialized OpenSSL private key data).
-// This is expensive.
-CPrivKey CKey::GetPrivKey() const
-{
+CPrivKey CKey::GetPrivKey() const {
     assert(fValid);
     CPrivKey privkey;
     CECKey key;
@@ -357,10 +876,7 @@ CPrivKey CKey::GetPrivKey() const
     return privkey;
 }
 
-// Convert the private key to a CPrivKey (serialized OpenSSL private key data).
-// This is expensive.
-CPubKey CKey::GetPubKey() const
-{
+CPubKey CKey::GetPubKey() const {
     assert(fValid);
     CPubKey pubkey;
     CECKey key;
@@ -369,9 +885,7 @@ CPubKey CKey::GetPubKey() const
     return pubkey;
 }
 
-// Create a DER-serialized signature.
-bool CKey::Sign(uint256 hash, std::vector<unsigned char>& vchSig) const
-{
+bool CKey::Sign(uint256 hash, std::vector<unsigned char>& vchSig) const {
     if (!fValid)
         return false;
     CECKey key;
@@ -379,13 +893,7 @@ bool CKey::Sign(uint256 hash, std::vector<unsigned char>& vchSig) const
     return key.Sign(hash, vchSig);
 }
 
-// Create a compact signature (65 bytes), which allows reconstructing the used public key.
-// The format is one header byte, followed by two times 32 bytes for the serialized r and s values.
-// The header byte: 0x1B = first key with even y, 0x1C = first key with odd y,
-//                  0x1D = second key with even y, 0x1E = second key with odd y,
-//                  add 0x04 for compressed keys.
-bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const
-{
+bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const {
     if (!fValid)
         return false;
     vchSig.resize(65);
@@ -399,8 +907,8 @@ bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) 
     return true;
 }
 
-// Derive BIP32 child key.
-bool CKey::Derive(CKey& keyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const {
+bool CKey::Derive(CKey& keyChild, unsigned char ccChild[32], unsigned int nChild, 
+                  const unsigned char cc[32]) const {
     assert(IsValid());
     assert(IsCompressed());
     unsigned char out[64];
@@ -408,20 +916,20 @@ bool CKey::Derive(CKey& keyChild, unsigned char ccChild[32], unsigned int nChild
     if ((nChild >> 31) == 0) {
         CPubKey pubkey = GetPubKey();
         assert(pubkey.begin() + 33 == pubkey.end());
-        BIP32Hash(cc, nChild, *pubkey.begin(), pubkey.begin()+1, out);
+        BIP32Hash(cc, nChild, *pubkey.begin(), pubkey.begin() + 1, out);
     } else {
         assert(begin() + 32 == end());
         BIP32Hash(cc, nChild, 0, begin(), out);
     }
-    memcpy(ccChild, out+32, 32);
+    memcpy(ccChild, out + 32, 32);
     bool ret = CECKey::TweakSecret((unsigned char*)keyChild.begin(), begin(), out);
     UnlockObject(out);
     keyChild.fCompressed = true;
     keyChild.fValid = ret;
     return ret;
 }
-// Load private key and check that public key matches.
-bool CKey::Load(CPrivKey &privkey, CPubKey &vchPubKey, bool fSkipCheck=false) {
+
+bool CKey::Load(CPrivKey &privkey, CPubKey &vchPubKey, bool fSkipCheck) {
     CECKey key;
     if (!key.SetPrivKey(privkey, fSkipCheck))
         return false;
@@ -439,32 +947,26 @@ bool CKey::Load(CPrivKey &privkey, CPubKey &vchPubKey, bool fSkipCheck=false) {
     return true;
 }
 
-// Check whether an element of a signature (r or s) is valid.
-bool CKey::CheckSignatureElement(const unsigned char *vch, int len, bool half) {
-    return CompareBigEndian(vch, len, vchZero, 0) > 0 &&
-           CompareBigEndian(vch, len, half ? vchMaxModHalfOrder : vchMaxModOrder, 32) <= 0;
+bool CKey::CheckSignatureElement(const unsigned char *vchElem, int len, bool half) {
+    return CompareBigEndian(vchElem, len, vchZero, 0) > 0 &&
+           CompareBigEndian(vchElem, len, half ? vchMaxModHalfOrder : vchMaxModOrder, 32) <= 0;
 }
 
-// Ensure that signature is DER-encoded
 bool CKey::ReserealizeSignature(std::vector<unsigned char>& vchSig) {
-    unsigned char *pos;
-
     if (vchSig.empty())
         return false;
 
-    pos = &vchSig[0];
-    ECDSA_SIG *sig = d2i_ECDSA_SIG(NULL, (const unsigned char **)&pos, vchSig.size());
+    const unsigned char *pos = &vchSig[0];
+    ECDSA_SIG *sig = d2i_ECDSA_SIG(NULL, &pos, vchSig.size());
     if (sig == NULL)
         return false;
 
     bool ret = false;
     int nSize = i2d_ECDSA_SIG(sig, NULL);
     if (nSize > 0) {
-        vchSig.resize(nSize); // grow or shrink as needed
-
-        pos = &vchSig[0];
-        i2d_ECDSA_SIG(sig, &pos);
-
+        vchSig.resize(nSize);
+        unsigned char *pout = &vchSig[0];
+        i2d_ECDSA_SIG(sig, &pout);
         ret = true;
     }
 
@@ -472,13 +974,9 @@ bool CKey::ReserealizeSignature(std::vector<unsigned char>& vchSig) {
     return ret;
 }
 
-
-
-///
-///CPubKey
-///
-
-
+// ============================================================================
+// CPubKey Implementation
+// ============================================================================
 
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
@@ -519,7 +1017,6 @@ bool CPubKey::VerifyCompact(const uint256 &hash, const std::vector<unsigned char
     return true;
 }
 
-// 2 occurences of isvalid in walletRPC should be isfullyvalid....
 bool CPubKey::IsFullyValid() const {
     if (!IsValid())
         return false;
@@ -532,27 +1029,21 @@ bool CPubKey::IsFullyValid() const {
 bool CPubKey::Decompress() {
     if (!IsValid())
         return false;
-#ifdef USE_SECP256K1
-    int clen = size();
-    int ret = secp256k1_ec_pubkey_decompress(instance_of_csecp256k1.ctx, (unsigned char*)begin(), &clen);
-    assert(ret);
-    assert(clen == (int)size());
-#else
     CECKey key;
     if (!key.SetPubKey(*this))
         return false;
     key.GetPubKey(*this, false);
-#endif
     return true;
 }
 
-bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const {
+bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned int nChild, 
+                     const unsigned char cc[32]) const {
     assert(IsValid());
     assert((nChild >> 31) == 0);
     assert(begin() + 33 == end());
     unsigned char out[64];
-    BIP32Hash(cc, nChild, *begin(), begin()+1, out);
-    memcpy(ccChild, out+32, 32);
+    BIP32Hash(cc, nChild, *begin(), begin() + 1, out);
+    memcpy(ccChild, out + 32, 32);
     CECKey key;
     bool ret = key.SetPubKey(*this);
     ret &= key.TweakPublic(out);
@@ -560,246 +1051,95 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned i
     return ret;
 }
 
+// ============================================================================
+// CExtKey / CExtPubKey Implementation
+// ============================================================================
 
-///
-/// CECKey
-///
-
-
-void CECKey::GetSecretBytes(unsigned char vch[32]) const {
-    const BIGNUM *bn = EC_KEY_get0_private_key(pkey);
-    assert(bn);
-    int nBytes = BN_num_bytes(bn);
-    int n=BN_bn2bin(bn,&vch[32 - nBytes]);
-    assert(n == nBytes);
-    memset(vch, 0, 32 - nBytes);
+void CExtKey::Encode(unsigned char code[74]) const {
+    code[0] = nDepth;
+    memcpy(code + 1, vchFingerprint, 4);
+    code[5] = (nChild >> 24) & 0xFF;
+    code[6] = (nChild >> 16) & 0xFF;
+    code[7] = (nChild >> 8) & 0xFF;
+    code[8] = (nChild >> 0) & 0xFF;
+    memcpy(code + 9, vchChainCode, 32);
+    code[41] = 0;
+    assert(key.size() == 32);
+    memcpy(code + 42, key.begin(), 32);
 }
 
-void CECKey::SetSecretBytes(const unsigned char vch[32]) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    BIGNUM bn;
-    BN_init(&bn);
-    assert(BN_bin2bn(vch, 32, &bn));
-    assert(EC_KEY_regenerate_key(pkey, &bn));
-    BN_clear_free(&bn);
-#else
-    BIGNUM *bn;
-    bn = BN_new();
-    assert(BN_bin2bn(vch, 32, bn));
-    assert(EC_KEY_regenerate_key(pkey, bn));
-    BN_clear_free(bn);
-#endif
+void CExtKey::Decode(const unsigned char code[74]) {
+    nDepth = code[0];
+    memcpy(vchFingerprint, code + 1, 4);
+    nChild = (code[5] << 24) | (code[6] << 16) | (code[7] << 8) | code[8];
+    memcpy(vchChainCode, code + 9, 32);
+    key.Set(code + 42, code + 74, true);
 }
 
-void CECKey::GetPrivKey(CPrivKey &privkey, bool fCompressed) {
-    EC_KEY_set_conv_form(pkey, fCompressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED);
-    int nSize = i2d_ECPrivateKey(pkey, NULL);
-    assert(nSize);
-    privkey.resize(nSize);
-    unsigned char* pbegin = &privkey[0];
-    int nSize2 = i2d_ECPrivateKey(pkey, &pbegin);
-    assert(nSize == nSize2);
+bool CExtKey::Derive(CExtKey &out, unsigned int nChild) const {
+    out.nDepth = nDepth + 1;
+    CKeyID id = key.GetPubKey().GetID();
+    memcpy(&out.vchFingerprint[0], &id, 4);
+    out.nChild = nChild;
+    return key.Derive(out.key, out.vchChainCode, nChild, vchChainCode);
 }
 
-bool CECKey::SetPrivKey(const CPrivKey &privkey, bool fSkipCheck) {
-    const unsigned char* pbegin = &privkey[0];
-    if (d2i_ECPrivateKey(&pkey, &pbegin, privkey.size())) {
-        if(fSkipCheck)
-            return true;
-
-        // d2i_ECPrivateKey returns true if parsing succeeds.
-        // This doesn't necessarily mean the key is valid.
-        if (EC_KEY_check_key(pkey))
-            return true;
-    }
-    return false;
-}
-
-void CECKey::GetPubKey(CPubKey &pubkey, bool fCompressed) {
-    EC_KEY_set_conv_form(pkey, fCompressed ? POINT_CONVERSION_COMPRESSED : POINT_CONVERSION_UNCOMPRESSED);
-    int nSize = i2o_ECPublicKey(pkey, NULL);
-    assert(nSize);
-    assert(nSize <= 65);
-    unsigned char c[65];
-    unsigned char *pbegin = c;
-    int nSize2 = i2o_ECPublicKey(pkey, &pbegin);
-    assert(nSize == nSize2);
-    pubkey.Set(&c[0], &c[nSize]);
-}
-
-bool CECKey::SetPubKey(const CPubKey &pubkey) {
-    const unsigned char* pbegin = pubkey.begin();
-    return o2i_ECPublicKey(&pkey, &pbegin, pubkey.size());
-}
-
-bool CECKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig) {
-    vchSig.clear();
-    ECDSA_SIG *sig = ECDSA_do_sign((unsigned char*)&hash, sizeof(hash), pkey);
-    if (sig == NULL)
-        return false;
-    BN_CTX *ctx = BN_CTX_new();
-    BN_CTX_start(ctx);
-    const EC_GROUP *group = EC_KEY_get0_group(pkey);
-    BIGNUM *order = BN_CTX_get(ctx);
-    BIGNUM *halforder = BN_CTX_get(ctx);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-
-#else
-    BIGNUM *s = 0;
-#endif
-    EC_GROUP_get_order(group, order, ctx);
-    BN_rshift1(halforder, order);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    if (BN_cmp(sig->s, halforder) > 0) {
-        // enforce low S values, by negating the value (modulo the order) if above order/2.
-        BN_sub(sig->s, order, sig->s);
-    }
-#else
-    if (BN_cmp(s, halforder) > 0) {
-        // enforce low S values, by negating the value (modulo the order) if above order/2.
-        BN_sub(s, order, s);
-    }
-#endif
-    BN_CTX_end(ctx);
-    BN_CTX_free(ctx);
-    unsigned int nSize = ECDSA_size(pkey);
-    vchSig.resize(nSize); // Make sure it is big enough
-    unsigned char *pos = &vchSig[0];
-    nSize = i2d_ECDSA_SIG(sig, &pos);
-    ECDSA_SIG_free(sig);
-    vchSig.resize(nSize); // Shrink to fit actual size
-    return true;
-}
-
-bool CECKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) {
-    // -1 = error, 0 = bad sig, 1 = good
-    if (ECDSA_verify(0, (unsigned char*)&hash, sizeof(hash), &vchSig[0], vchSig.size(), pkey) != 1)
-        return false;
-    return true;
-}
-
-bool CECKey::SignCompact(const uint256 &hash, unsigned char *p64, int &rec) {
-    bool fOk = false;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#else
-    const BIGNUM *s = NULL;
-    const BIGNUM *r = NULL;
-#endif
-    ECDSA_SIG *sig = ECDSA_do_sign((unsigned char*)&hash, sizeof(hash), pkey);
-    if (sig==NULL)
-        return false;
-    memset(p64, 0, 64);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    int nBitsR = BN_num_bits(sig->r);
-    int nBitsS = BN_num_bits(sig->s);
-#else
-    ECDSA_SIG_get0(sig, &r, &s);
-    int nBitsR = BN_num_bits(r);
-    int nBitsS = BN_num_bits(s);
-#endif
-    if (nBitsR <= 256 && nBitsS <= 256) {
-        CPubKey pubkey;
-        GetPubKey(pubkey, true);
-        for (int i=0; i<4; i++) {
-            CECKey keyRec;
-            if (ECDSA_SIG_recover_key_GFp(keyRec.pkey, sig, (unsigned char*)&hash, sizeof(hash), i, 1) == 1) {
-                CPubKey pubkeyRec;
-                keyRec.GetPubKey(pubkeyRec, true);
-                if (pubkeyRec == pubkey) {
-                    rec = i;
-                    fOk = true;
-                    break;
-                }
-            }
-        }
-        assert(fOk);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        BN_bn2bin(sig->r,&p64[32-(nBitsR+7)/8]);
-        BN_bn2bin(sig->s,&p64[64-(nBitsS+7)/8]);
-#else
-        BN_bn2bin(r,&p64[32-(nBitsR+7)/8]);
-        BN_bn2bin(s,&p64[64-(nBitsS+7)/8]);
-#endif
-    }
-    ECDSA_SIG_free(sig);
-    return fOk;
-}
-
-// reconstruct public key from a compact signature
-// This is only slightly more CPU intensive than just verifying it.
-// If this function succeeds, the recovered public key is guaranteed to be valid
-// (the signature is a valid signature of the given data for that key)
-bool CECKey::Recover(const uint256 &hash, const unsigned char *p64, int rec)
-{
-    if (rec<0 || rec>=3)
-        return false;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-
-#else
-    const BIGNUM *s = NULL;
-    const BIGNUM *r = NULL;
-#endif
-    ECDSA_SIG *sig = ECDSA_SIG_new();
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    BN_bin2bn(&p64[0],  32, sig->r);
-    BN_bin2bn(&p64[32], 32, sig->s);
-#else
-    ECDSA_SIG_get0(sig, &r, &s);
-    BN_bin2bn(&p64[0],  32, r);
-    BN_bin2bn(&p64[32], 32, s);
-#endif
-    bool ret = ECDSA_SIG_recover_key_GFp(pkey, sig, (unsigned char*)&hash, sizeof(hash), rec, 0) == 1;
-    ECDSA_SIG_free(sig);
+CExtPubKey CExtKey::Neuter() const {
+    CExtPubKey ret;
+    ret.nDepth = nDepth;
+    memcpy(&ret.vchFingerprint[0], &vchFingerprint[0], 4);
+    ret.nChild = nChild;
+    ret.pubkey = key.GetPubKey();
+    memcpy(&ret.vchChainCode[0], &vchChainCode[0], 32);
     return ret;
 }
 
-bool CECKey::TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], const unsigned char vchTweak[32])
-{
-    bool ret = true;
-    BN_CTX *ctx = BN_CTX_new();
-    BN_CTX_start(ctx);
-    BIGNUM *bnSecret = BN_CTX_get(ctx);
-    BIGNUM *bnTweak = BN_CTX_get(ctx);
-    BIGNUM *bnOrder = BN_CTX_get(ctx);
-    EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
-    EC_GROUP_get_order(group, bnOrder, ctx); // what a grossly inefficient way to get the (constant) group order...
-    BN_bin2bn(vchTweak, 32, bnTweak);
-    if (BN_cmp(bnTweak, bnOrder) >= 0)
-        ret = false; // extremely unlikely
-    BN_bin2bn(vchSecretIn, 32, bnSecret);
-    BN_add(bnSecret, bnSecret, bnTweak);
-    BN_nnmod(bnSecret, bnSecret, bnOrder, ctx);
-    if (BN_is_zero(bnSecret))
-        ret = false; // ridiculously unlikely
-    int nBits = BN_num_bits(bnSecret);
-    memset(vchSecretOut, 0, 32);
-    BN_bn2bin(bnSecret, &vchSecretOut[32-(nBits+7)/8]);
-    EC_GROUP_free(group);
-    BN_CTX_end(ctx);
-    BN_CTX_free(ctx);
-    return ret;
+void CExtKey::SetMaster(const unsigned char *seed, unsigned int nSeedLen) {
+    static const unsigned char hashkey[] = {'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'};
+    unsigned char out[64];
+    LockObject(out);
+    HMAC_SHA512_CTX ctx;
+    HMAC_SHA512_Init(&ctx, hashkey, sizeof(hashkey));
+    HMAC_SHA512_Update(&ctx, seed, nSeedLen);
+    HMAC_SHA512_Final(out, &ctx);
+    key.Set(out, out + 32, true);
+    memcpy(vchChainCode, out + 32, 32);
+    UnlockObject(out);
+    nDepth = 0;
+    nChild = 0;
+    memset(vchFingerprint, 0, sizeof(vchFingerprint));
 }
 
-bool CECKey::TweakPublic(const unsigned char vchTweak[32]) {
-    bool ret = true;
-    BN_CTX *ctx = BN_CTX_new();
-    BN_CTX_start(ctx);
-    BIGNUM *bnTweak = BN_CTX_get(ctx);
-    BIGNUM *bnOrder = BN_CTX_get(ctx);
-    BIGNUM *bnOne = BN_CTX_get(ctx);
-    const EC_GROUP *group = EC_KEY_get0_group(pkey);
-    EC_GROUP_get_order(group, bnOrder, ctx); // what a grossly inefficient way to get the (constant) group order...
-    BN_bin2bn(vchTweak, 32, bnTweak);
-    if (BN_cmp(bnTweak, bnOrder) >= 0)
-        ret = false; // extremely unlikely
-    EC_POINT *point = EC_POINT_dup(EC_KEY_get0_public_key(pkey), group);
-    BN_one(bnOne);
-    EC_POINT_mul(group, point, bnTweak, point, bnOne, ctx);
-    if (EC_POINT_is_at_infinity(group, point))
-        ret = false; // ridiculously unlikely
-    EC_KEY_set_public_key(pkey, point);
-    EC_POINT_free(point);
-    BN_CTX_end(ctx);
-    BN_CTX_free(ctx);
-    return ret;
+void CExtPubKey::Encode(unsigned char code[74]) const {
+    code[0] = nDepth;
+    memcpy(code + 1, vchFingerprint, 4);
+    code[5] = (nChild >> 24) & 0xFF;
+    code[6] = (nChild >> 16) & 0xFF;
+    code[7] = (nChild >> 8) & 0xFF;
+    code[8] = (nChild >> 0) & 0xFF;
+    memcpy(code + 9, vchChainCode, 32);
+    assert(pubkey.size() == 33);
+    memcpy(code + 41, pubkey.begin(), 33);
+}
+
+void CExtPubKey::Decode(const unsigned char code[74]) {
+    nDepth = code[0];
+    memcpy(vchFingerprint, code + 1, 4);
+    nChild = (code[5] << 24) | (code[6] << 16) | (code[7] << 8) | code[8];
+    memcpy(vchChainCode, code + 9, 32);
+    pubkey.Set(code + 41, code + 74);
+}
+
+bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
+    out.nDepth = nDepth + 1;
+    CKeyID id = pubkey.GetID();
+    memcpy(&out.vchFingerprint[0], &id, 4);
+    out.nChild = nChild;
+    return pubkey.Derive(out.pubkey, out.vchChainCode, nChild, vchChainCode);
+}
+
+// Global tweak function
+bool TweakSecret(unsigned char vchSecretOut[32], const unsigned char vchSecretIn[32], 
+                 const unsigned char vchTweak[32]) {
+    return CECKey::TweakSecret(vchSecretOut, vchSecretIn, vchTweak);
 }
