@@ -22,7 +22,7 @@ public:
 	    USD,
         mBTC,
         uBTC,
-        Denarii
+        Antonini
     };
 
     //! @name Static API

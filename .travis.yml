@@ -1,37 +1,74 @@
+# Antoninianus CI - Travis CI Configuration
+# Modern Ubuntu with OpenSSL 3.x support
+
 language: cpp
-dist: xenial
+dist: jammy # Ubuntu 22.04 LTS
+
 env:
   global:
-    - MAKEFLAGS="-j 2"
+    - MAKEFLAGS="-j 4"
+
 addons:
   apt:
     packages:
-    - software-properties-common
-    - build-essential
-    - libdb++-dev
-    - libminiupnpc-dev
-    - libboost-all-dev
-    - libssl-dev
-    - git
-    - libevent-dev
-    - obfs4proxy
-    - libqrencode-dev
-    - libqt5gui5 
-    - libqt5core5a 
-    - libqt5dbus5 
-    - qttools5-dev
-    - qttools5-dev-tools
-    - libtool
-# whitelist
+      - software-properties-common
+      - build-essential
+      - libdb++-dev
+      - libminiupnpc-dev
+      - libboost-all-dev
+      - libssl-dev
+      - git
+      - libevent-dev
+      - obfs4proxy
+      - libqrencode-dev
+      - libqt5gui5
+      - libqt5core5a
+      - libqt5dbus5
+      - qttools5-dev
+      - qttools5-dev-tools
+      - qtbase5-dev
+      - libtool
+      - libcurl4-openssl-dev
+
+# Build branches
 branches:
   only:
     - master
-    - v3.4
+    - main
+    - develop
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
+
 jobs:
   include:
-    - stage: denariusd Build
-      before_script: cd src
-      script: make -f makefile.unix
-    - stage: Denarius QT Build
-      before_script: qmake -qt=qt5 "USE_UPNP=1" "USE_QRCODE=1" denarius-qt.pro
-      script: make
+    # Daemon build
+    - stage: Daemon Build
+      name: "denariusd (OpenSSL 3.x)"
+      script:
+        - cd src
+        - make -f makefile.unix USE_UPNP=1
+
+    # Qt wallet build
+    - stage: Qt Wallet Build
+      name: "Denarius Qt (OpenSSL 3.x)"
+      script:
+        - qmake "USE_UPNP=1" "USE_QRCODE=1" denarius-qt.pro
+        - make
+
+    # Static analysis
+    - stage: Security Analysis
+      name: "Static Code Analysis"
+      addons:
+        apt:
+          packages:
+            - cppcheck
+      script:
+        - cppcheck --enable=warning,style,performance --error-exitcode=0 src/
+
+cache:
+  directories:
+    - $HOME/.ccache
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always

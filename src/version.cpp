@@ -1,4 +1,5 @@
 // Copyright (c) 2012 The Bitcoin developers
+// Copyright (c) 2024 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <string>
@@ -6,9 +7,9 @@
 #include "version.h"
 
 // Name of client reported in the 'version' message. Report the same name
-// for both bitcoind and bitcoin-qt, to make it harder for attackers to
+// for both daemon and Qt GUI, to make it harder for attackers to
 // target servers or GUI users specifically.
-const std::string CLIENT_NAME("Denarii");
+const std::string CLIENT_NAME("Antoninianus");
 
 // Client version number
 #define CLIENT_VERSION_SUFFIX   ""

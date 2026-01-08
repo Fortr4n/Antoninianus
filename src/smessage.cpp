@@ -38,11 +38,12 @@ Notes:
 
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
-#include <openssl/ecdh.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -96,6 +97,168 @@ leveldb::DB *smsgDB = NULL;
 
 namespace fs = boost::filesystem;
 
+/**
+ * Compute ECDH shared secret using OpenSSL 3.x EVP_PKEY_derive API
+ * 
+ * @param privKey The private key (32 bytes)
+ * @param pubKey The public key (33 or 65 bytes compressed/uncompressed)
+ * @param pubKeyLen Length of public key
+ * @param sharedSecret Output buffer for 32-byte shared secret
+ * @return true on success, false on failure
+ */
+static bool ComputeECDHSharedSecret(const unsigned char* privKey, 
+                                     const unsigned char* pubKey, size_t pubKeyLen,
+                                     unsigned char* sharedSecret)
+{
+    EVP_PKEY *pkeyPriv = NULL;
+    EVP_PKEY *pkeyPub = NULL;
+    EVP_PKEY_CTX *derivectx = NULL;
+    EVP_PKEY_CTX *ctxPriv = NULL;
+    EVP_PKEY_CTX *ctxPub = NULL;
+    OSSL_PARAM_BLD *paramBld = NULL;
+    OSSL_PARAM *params = NULL;
+    BIGNUM *bnPriv = NULL;
+    EC_GROUP *group = NULL;
+    EC_POINT *pubPoint = NULL;
+    BN_CTX *bnctx = NULL;
+    unsigned char pubKeyUncompressed[65];
+    size_t pubUncompLen = 65;
+    bool result = false;
+    
+    // Create EC_GROUP for secp256k1
+    group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    if (!group) goto cleanup;
+    
+    bnctx = BN_CTX_new();
+    if (!bnctx) goto cleanup;
+    
+    // Convert private key bytes to BIGNUM
+    bnPriv = BN_bin2bn(privKey, 32, NULL);
+    if (!bnPriv) goto cleanup;
+    
+    // Calculate public key from private key for the private EVP_PKEY
+    pubPoint = EC_POINT_new(group);
+    if (!pubPoint) goto cleanup;
+    if (!EC_POINT_mul(group, pubPoint, bnPriv, NULL, NULL, bnctx)) goto cleanup;
+    
+    // Get public key in uncompressed format
+    if (EC_POINT_point2oct(group, pubPoint, POINT_CONVERSION_UNCOMPRESSED,
+                           pubKeyUncompressed, 65, bnctx) != 65)
+        goto cleanup;
+    
+    // Build private key EVP_PKEY
+    paramBld = OSSL_PARAM_BLD_new();
+    if (!paramBld) goto cleanup;
+    if (!OSSL_PARAM_BLD_push_utf8_string(paramBld, OSSL_PKEY_PARAM_GROUP_NAME, SN_secp256k1, 0))
+        goto cleanup;
+    if (!OSSL_PARAM_BLD_push_BN(paramBld, OSSL_PKEY_PARAM_PRIV_KEY, bnPriv))
+        goto cleanup;
+    if (!OSSL_PARAM_BLD_push_octet_string(paramBld, OSSL_PKEY_PARAM_PUB_KEY, pubKeyUncompressed, 65))
+        goto cleanup;
+    
+    params = OSSL_PARAM_BLD_to_param(paramBld);
+    if (!params) goto cleanup;
+    
+    ctxPriv = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    if (!ctxPriv) goto cleanup;
+    if (EVP_PKEY_fromdata_init(ctxPriv) <= 0) goto cleanup;
+    if (EVP_PKEY_fromdata(ctxPriv, &pkeyPriv, EVP_PKEY_KEYPAIR, params) <= 0) goto cleanup;
+    
+    OSSL_PARAM_free(params); params = NULL;
+    OSSL_PARAM_BLD_free(paramBld); paramBld = NULL;
+    
+    // Build peer public key EVP_PKEY
+    paramBld = OSSL_PARAM_BLD_new();
+    if (!paramBld) goto cleanup;
+    if (!OSSL_PARAM_BLD_push_utf8_string(paramBld, OSSL_PKEY_PARAM_GROUP_NAME, SN_secp256k1, 0))
+        goto cleanup;
+    if (!OSSL_PARAM_BLD_push_octet_string(paramBld, OSSL_PKEY_PARAM_PUB_KEY, pubKey, pubKeyLen))
+        goto cleanup;
+    
+    params = OSSL_PARAM_BLD_to_param(paramBld);
+    if (!params) goto cleanup;
+    
+    ctxPub = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    if (!ctxPub) goto cleanup;
+    if (EVP_PKEY_fromdata_init(ctxPub) <= 0) goto cleanup;
+    if (EVP_PKEY_fromdata(ctxPub, &pkeyPub, EVP_PKEY_PUBLIC_KEY, params) <= 0) goto cleanup;
+    
+    // Perform ECDH key derivation
+    derivectx = EVP_PKEY_CTX_new(pkeyPriv, NULL);
+    if (!derivectx) goto cleanup;
+    if (EVP_PKEY_derive_init(derivectx) <= 0) goto cleanup;
+    if (EVP_PKEY_derive_set_peer(derivectx, pkeyPub) <= 0) goto cleanup;
+    
+    // Get the shared secret (X coordinate of the shared point)
+    size_t secretLen = 32;
+    if (EVP_PKEY_derive(derivectx, sharedSecret, &secretLen) <= 0) goto cleanup;
+    if (secretLen != 32) goto cleanup;
+    
+    result = true;
+    
+cleanup:
+    EVP_PKEY_CTX_free(derivectx);
+    EVP_PKEY_CTX_free(ctxPriv);
+    EVP_PKEY_CTX_free(ctxPub);
+    EVP_PKEY_free(pkeyPriv);
+    EVP_PKEY_free(pkeyPub);
+    OSSL_PARAM_free(params);
+    OSSL_PARAM_BLD_free(paramBld);
+    BN_free(bnPriv);
+    EC_POINT_free(pubPoint);
+    EC_GROUP_free(group);
+    BN_CTX_free(bnctx);
+    
+    return result;
+}
+
+/**
+ * Compute HMAC-SHA256 using OpenSSL 3.x EVP APIs
+ * 
+ * @param key HMAC key (32 bytes)
+ * @param data1 First data block
+ * @param len1 Length of first data block
+ * @param data2 Second data block (optional, NULL if not used)
+ * @param len2 Length of second data block
+ * @param mac Output buffer for 32-byte MAC
+ * @return true on success, false on failure
+ */
+static bool ComputeHMAC256(const unsigned char* key,
+                           const unsigned char* data1, size_t len1,
+                           const unsigned char* data2, size_t len2,
+                           unsigned char* mac)
+{
+    EVP_MAC *hmac = NULL;
+    EVP_MAC_CTX *ctx = NULL;
+    OSSL_PARAM params[2];
+    size_t macLen = 32;
+    bool result = false;
+    
+    hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    if (!hmac) goto cleanup;
+    
+    ctx = EVP_MAC_CTX_new(hmac);
+    if (!ctx) goto cleanup;
+    
+    params[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA256", 0);
+    params[1] = OSSL_PARAM_construct_end();
+    
+    if (EVP_MAC_init(ctx, key, 32, params) != 1) goto cleanup;
+    if (EVP_MAC_update(ctx, data1, len1) != 1) goto cleanup;
+    if (data2 && len2 > 0) {
+        if (EVP_MAC_update(ctx, data2, len2) != 1) goto cleanup;
+    }
+    if (EVP_MAC_final(ctx, mac, &macLen, 32) != 1) goto cleanup;
+    
+    result = (macLen == 32);
+    
+cleanup:
+    EVP_MAC_CTX_free(ctx);
+    EVP_MAC_free(hmac);
+    
+    return result;
+}
+
 bool SecMsgCrypter::SetKey(const std::vector<unsigned char>& vchNewKey, unsigned char* chNewIV)
 {
 
@@ -124,28 +287,18 @@ bool SecMsgCrypter::Encrypt(unsigned char* chPlaintext, uint32_t nPlain, std::ve
     int nLen = nPlain;
 
     int nCLen = nLen + AES_BLOCK_SIZE, nFLen = 0;
-    vchCiphertext = std::vector<unsigned char> (nCLen);
+    vchCiphertext = std::vector<unsigned char>(nCLen);
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    EVP_CIPHER_CTX ctx;
-#else
-    EVP_CIPHER_CTX *ctx;
-#endif
+    // OpenSSL 3.x: Always use EVP_CIPHER_CTX_new/free
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return false;
 
     bool fOk = true;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    EVP_CIPHER_CTX_init(&ctx);
-    if (fOk) fOk = EVP_EncryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]);
-    if (fOk) fOk = EVP_EncryptUpdate(&ctx, &vchCiphertext[0], &nCLen, chPlaintext, nLen);
-    if (fOk) fOk = EVP_EncryptFinal_ex(&ctx, (&vchCiphertext[0])+nCLen, &nFLen);
-    EVP_CIPHER_CTX_cleanup(&ctx);
-#else
-    EVP_CIPHER_CTX_init(ctx);
-    if (fOk) fOk = EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]);
-    if (fOk) fOk = EVP_EncryptUpdate(ctx, &vchCiphertext[0], &nCLen, chPlaintext, nLen);
-    if (fOk) fOk = EVP_EncryptFinal_ex(ctx, (&vchCiphertext[0])+nCLen, &nFLen);
-    EVP_CIPHER_CTX_cleanup(ctx);
-#endif
+    if (fOk) fOk = (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]) == 1);
+    if (fOk) fOk = (EVP_EncryptUpdate(ctx, &vchCiphertext[0], &nCLen, chPlaintext, nLen) == 1);
+    if (fOk) fOk = (EVP_EncryptFinal_ex(ctx, (&vchCiphertext[0])+nCLen, &nFLen) == 1);
+    EVP_CIPHER_CTX_free(ctx);
 
     if (!fOk)
         return false;
@@ -165,26 +318,16 @@ bool SecMsgCrypter::Decrypt(unsigned char* chCiphertext, uint32_t nCipher, std::
 
     vchPlaintext.resize(nCipher);
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    EVP_CIPHER_CTX ctx;
-#else
-    EVP_CIPHER_CTX *ctx;
-#endif
+    // OpenSSL 3.x: Always use EVP_CIPHER_CTX_new/free
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return false;
 
     bool fOk = true;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    EVP_CIPHER_CTX_init(&ctx);
-    if (fOk) fOk = EVP_DecryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]);
-    if (fOk) fOk = EVP_DecryptUpdate(&ctx, &vchPlaintext[0], &nPLen, &chCiphertext[0], nCipher);
-    if (fOk) fOk = EVP_DecryptFinal_ex(&ctx, (&vchPlaintext[0])+nPLen, &nFLen);
-    EVP_CIPHER_CTX_cleanup(&ctx);
-#else
-    EVP_CIPHER_CTX_init(ctx);
-    if (fOk) fOk = EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]);
-    if (fOk) fOk = EVP_DecryptUpdate(ctx, &vchPlaintext[0], &nPLen, &chCiphertext[0], nCipher);
-    if (fOk) fOk = EVP_DecryptFinal_ex(ctx, (&vchPlaintext[0])+nPLen, &nFLen);
-    EVP_CIPHER_CTX_cleanup(ctx);
-#endif
+    if (fOk) fOk = (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, &chKey[0], &chIV[0]) == 1);
+    if (fOk) fOk = (EVP_DecryptUpdate(ctx, &vchPlaintext[0], &nPLen, &chCiphertext[0], nCipher) == 1);
+    if (fOk) fOk = (EVP_DecryptFinal_ex(ctx, (&vchPlaintext[0])+nPLen, &nFLen) == 1);
+    EVP_CIPHER_CTX_free(ctx);
 
     if (!fOk)
         return false;
@@ -3160,17 +3303,24 @@ int SecureMsgValidate(unsigned char *pHeader, unsigned char *pPayload, uint32_t 
     for (int i = 0; i < 32; i+=4)
         memcpy(civ+i, &nonse, 4);
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    HMAC_CTX ctx;
-    HMAC_CTX_init(&ctx);
-
-    unsigned int nBytes;
-    if (!HMAC_Init_ex(&ctx, &civ[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(&ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4)
-        || !HMAC_Update(&ctx, (unsigned char*) pPayload, nPayload)
-        || !HMAC_Update(&ctx, pPayload, nPayload)
-        || !HMAC_Final(&ctx, sha256Hash, &nBytes)
-        || nBytes != 32)
+    // OpenSSL 3.x: Use EVP_MAC for HMAC computation
+    EVP_MAC *hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *hmac_ctx = EVP_MAC_CTX_new(hmac);
+    OSSL_PARAM macParams[2];
+    macParams[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA256", 0);
+    macParams[1] = OSSL_PARAM_construct_end();
+    
+    size_t nBytes = 32;
+    bool hmacOk = (EVP_MAC_init(hmac_ctx, &civ[0], 32, macParams) == 1);
+    if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4) == 1);
+    if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, (unsigned char*) pPayload, nPayload) == 1);
+    if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, pPayload, nPayload) == 1);
+    if (hmacOk) hmacOk = (EVP_MAC_final(hmac_ctx, sha256Hash, &nBytes, 32) == 1);
+    
+    EVP_MAC_CTX_free(hmac_ctx);
+    EVP_MAC_free(hmac);
+    
+    if (!hmacOk || nBytes != 32)
     {
         if (fDebugSmsg)
             printf("HMAC error.\n");
@@ -3193,42 +3343,6 @@ int SecureMsgValidate(unsigned char *pHeader, unsigned char *pPayload, uint32_t 
             rv = 3; // checksum mismatch
         }
     }
-    HMAC_CTX_cleanup(&ctx);
-#else
-    HMAC_CTX *ctx;
-    ctx = HMAC_CTX_new();
-
-    unsigned int nBytes;
-    if (!HMAC_Init_ex(ctx, &civ[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4)
-        || !HMAC_Update(ctx, (unsigned char*) pPayload, nPayload)
-        || !HMAC_Update(ctx, pPayload, nPayload)
-        || !HMAC_Final(ctx, sha256Hash, &nBytes)
-        || nBytes != 32)
-    {
-        if (fDebugSmsg)
-            printf("HMAC error.\n");
-        rv = 1; // error
-    } else
-    {
-        if (sha256Hash[31] == 0
-            && sha256Hash[30] == 0
-            && (~(sha256Hash[29]) & ((1<<0) || (1<<1) || (1<<2)) ))
-        {
-            if (fDebugSmsg)
-                printf("Hash Valid.\n");
-            rv = 0; // smsg is valid
-        };
-
-        if (memcmp(psmsg->hash, sha256Hash, 4) != 0)
-        {
-            if (fDebugSmsg)
-                printf("Checksum mismatch.\n");
-            rv = 3; // checksum mismatch
-        }
-    }
-    HMAC_CTX_free(ctx);
-#endif
 
     return rv;
 };
@@ -3256,137 +3370,55 @@ int SecureMsgSetHash(unsigned char *pHeader, unsigned char *pPayload, uint32_t n
     //vchHash.resize(32);
 
     bool found = false;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    HMAC_CTX ctx;
-    HMAC_CTX_init(&ctx);
+    
+    // OpenSSL 3.x: Use EVP_MAC for HMAC computation in POW loop
+    EVP_MAC *hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *hmac_ctx = EVP_MAC_CTX_new(hmac);
+    OSSL_PARAM macParams[2];
+    macParams[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA256", 0);
+    macParams[1] = OSSL_PARAM_construct_end();
 
     uint32_t nonse = 0;
 
-    //CBigNum bnTarget(2);
-    //bnTarget = bnTarget.pow(256 - 40);
-
-    // -- break for HMAC_CTX_cleanup
     for (;;)
     {
         if (!fSecMsgEnabled)
             break;
 
-        //psmsg->timestamp = GetTime();
-        //memcpy(&psmsg->timestamp, &now, 8);
         memcpy(&psmsg->nonse[0], &nonse, 4);
 
         for (int i = 0; i < 32; i+=4)
             memcpy(civ+i, &nonse, 4);
 
-        unsigned int nBytes;
-        if (!HMAC_Init_ex(&ctx, &civ[0], 32, EVP_sha256(), NULL)
-            || !HMAC_Update(&ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4)
-            || !HMAC_Update(&ctx, (unsigned char*) pPayload, nPayload)
-            || !HMAC_Update(&ctx, pPayload, nPayload)
-            || !HMAC_Final(&ctx, sha256Hash, &nBytes)
-            //|| !HMAC_Final(&ctx, &vchHash[0], &nBytes)
-            || nBytes != 32)
+        size_t nBytes = 32;
+        bool hmacOk = (EVP_MAC_init(hmac_ctx, &civ[0], 32, macParams) == 1);
+        if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4) == 1);
+        if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, (unsigned char*) pPayload, nPayload) == 1);
+        if (hmacOk) hmacOk = (EVP_MAC_update(hmac_ctx, pPayload, nPayload) == 1);
+        if (hmacOk) hmacOk = (EVP_MAC_final(hmac_ctx, sha256Hash, &nBytes, 32) == 1);
+        
+        if (!hmacOk || nBytes != 32)
             break;
-
-        /*
-        if (CBigNum(vchHash) <= bnTarget)
-        {
-            found = true;
-            if (fDebugSmsg)
-                printf("Match %u\n", nonse);
-            break;
-        };
-        */
 
         if (sha256Hash[31] == 0
             && sha256Hash[30] == 0
             && (~(sha256Hash[29]) & ((1<<0) || (1<<1) || (1<<2)) ))
-            //    && sha256Hash[29] == 0)
         {
             found = true;
-            //if (fDebugSmsg)
-            //    printf("Match %u\n", nonse);
             break;
         }
 
-        //if (nonse >= UINT32_MAX)
         if (nonse >= 4294967295U)
         {
             if (fDebugSmsg)
                 printf("No match %u\n", nonse);
             break;
-            //return 1;
         }
         nonse++;
     };
 
-    HMAC_CTX_cleanup(&ctx);
-#else
-    HMAC_CTX *ctx;
-    ctx = HMAC_CTX_new();
-
-    uint32_t nonse = 0;
-
-    //CBigNum bnTarget(2);
-    //bnTarget = bnTarget.pow(256 - 40);
-
-    // -- break for HMAC_CTX_cleanup
-    for (;;)
-    {
-        if (!fSecMsgEnabled)
-            break;
-
-        //psmsg->timestamp = GetTime();
-        //memcpy(&psmsg->timestamp, &now, 8);
-        memcpy(&psmsg->nonse[0], &nonse, 4);
-
-        for (int i = 0; i < 32; i+=4)
-            memcpy(civ+i, &nonse, 4);
-
-        unsigned int nBytes;
-        if (!HMAC_Init_ex(ctx, &civ[0], 32, EVP_sha256(), NULL)
-            || !HMAC_Update(ctx, (unsigned char*) pHeader+4, SMSG_HDR_LEN-4)
-            || !HMAC_Update(ctx, (unsigned char*) pPayload, nPayload)
-            || !HMAC_Update(ctx, pPayload, nPayload)
-            || !HMAC_Final(ctx, sha256Hash, &nBytes)
-            //|| !HMAC_Final(&ctx, &vchHash[0], &nBytes)
-            || nBytes != 32)
-            break;
-
-        /*
-        if (CBigNum(vchHash) <= bnTarget)
-        {
-            found = true;
-            if (fDebugSmsg)
-                printf("Match %u\n", nonse);
-            break;
-        };
-        */
-
-        if (sha256Hash[31] == 0
-            && sha256Hash[30] == 0
-            && (~(sha256Hash[29]) & ((1<<0) || (1<<1) || (1<<2)) ))
-            //    && sha256Hash[29] == 0)
-        {
-            found = true;
-            //if (fDebugSmsg)
-            //    printf("Match %u\n", nonse);
-            break;
-        }
-
-        //if (nonse >= UINT32_MAX)
-        if (nonse >= 4294967295U)
-        {
-            if (fDebugSmsg)
-                printf("No match %u\n", nonse);
-            break;
-            //return 1;
-        }
-        nonse++;
-    };
-
-    HMAC_CTX_free(ctx);
-#endif
+    EVP_MAC_CTX_free(hmac_ctx);
+    EVP_MAC_free(hmac);
 
     if (!fSecMsgEnabled)
     {
@@ -3515,35 +3547,13 @@ int SecureMsgEncrypt(SecureMessage& smsg, std::string& addressFrom, std::string&
     CECKey ecKeyR;
     ecKeyR.SetSecretBytes(keyR.begin());
 
-    // -- Do an EC point multiply with public key K and private key r. This gives you public key P.
-    CECKey ecKeyK;
-    if (!ecKeyK.SetPubKey(cpkDestK))
+    // -- Do an EC point multiply with public key K and private key r. This gives you shared secret P.
+    std::vector<unsigned char> vchP(32);
+    
+    // Use modern OpenSSL 3.x EVP_PKEY_derive based ECDH
+    if (!ComputeECDHSharedSecret(keyR.begin(), cpkDestK.begin(), cpkDestK.size(), &vchP[0]))
     {
-        printf("Could not set pubkey for K: %s.\n", ValueString(cpkDestK.Raw()).c_str());
-        return 4; // address to is invalid
-    };
-
-    std::vector<unsigned char> vchP;
-    vchP.resize(32);
-    EC_KEY* pkeyr = ecKeyR.GetECKey();
-    EC_KEY* pkeyK = ecKeyK.GetECKey();
-
-    // always seems to be 32, worth checking?
-    //int field_size = EC_GROUP_get_degree(EC_KEY_get0_group(pkeyr));
-    //int secret_len = (field_size+7)/8;
-    //printf("secret_len %d.\n", secret_len);
-
-    // -- ECDH_compute_key returns the same P if fed compressed or uncompressed public keys
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    ECDH_set_method(pkeyr, ECDH_OpenSSL());
-#else
-     EC_KEY_set_method(pkeyr, EC_KEY_OpenSSL());
-#endif
-    int lenP = ECDH_compute_key(&vchP[0], 32, EC_KEY_get0_public_key(pkeyK), pkeyr, NULL);
-
-    if (lenP != 32)
-    {
-        printf("ECDH_compute_key failed, lenP: %d.\n", lenP);
+        printf("ComputeECDHSharedSecret failed.\n");
         return 6;
     };
 
@@ -3671,31 +3681,27 @@ int SecureMsgEncrypt(SecureMessage& smsg, std::string& addressFrom, std::string&
     //    Message authentication code, (hash of timestamp + destination + payload)
     bool fHmacOk = true;
     unsigned int nBytes = 32;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    HMAC_CTX ctx;
-    HMAC_CTX_init(&ctx);
-
-    if (!HMAC_Init_ex(&ctx, &key_m[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(&ctx, (unsigned char*) &smsg.timestamp, sizeof(smsg.timestamp))
-        || !HMAC_Update(&ctx, &vchCiphertext[0], vchCiphertext.size())
-        || !HMAC_Final(&ctx, smsg.mac, &nBytes)
-        || nBytes != 32)
+    // OpenSSL 3.x: Use EVP_MAC for HMAC computation
+    EVP_MAC *hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *hmac_ctx = EVP_MAC_CTX_new(hmac);
+    OSSL_PARAM macParams[2];
+    macParams[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA256", 0);
+    macParams[1] = OSSL_PARAM_construct_end();
+    
+    size_t macLen = 32;
+    if (EVP_MAC_init(hmac_ctx, &key_m[0], 32, macParams) != 1)
         fHmacOk = false;
-
-    HMAC_CTX_cleanup(&ctx);
-#else
-    HMAC_CTX *ctx;
-    ctx = HMAC_CTX_new();
-
-    if (!HMAC_Init_ex(ctx, &key_m[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(ctx, (unsigned char*) &smsg.timestamp, sizeof(smsg.timestamp))
-        || !HMAC_Update(ctx, &vchCiphertext[0], vchCiphertext.size())
-        || !HMAC_Final(ctx, smsg.mac, &nBytes)
-        || nBytes != 32)
+    if (fHmacOk && EVP_MAC_update(hmac_ctx, (unsigned char*) &smsg.timestamp, sizeof(smsg.timestamp)) != 1)
         fHmacOk = false;
-
-    HMAC_CTX_free(ctx);
-#endif
+    if (fHmacOk && EVP_MAC_update(hmac_ctx, &vchCiphertext[0], vchCiphertext.size()) != 1)
+        fHmacOk = false;
+    if (fHmacOk && EVP_MAC_final(hmac_ctx, smsg.mac, &macLen, 32) != 1)
+        fHmacOk = false;
+    if (macLen != 32)
+        fHmacOk = false;
+    
+    EVP_MAC_CTX_free(hmac_ctx);
+    EVP_MAC_free(hmac);
 
     if (!fHmacOk)
     {
@@ -3942,35 +3948,13 @@ int SecureMsgDecrypt(bool fTestOnly, std::string& address, unsigned char *pHeade
         return 1;
     };
 
-    CECKey ecKeyR;
-    if (!ecKeyR.SetPubKey(cpkR))
+    // -- Do an EC point multiply with private key k and public key R. This gives you shared secret P.
+    std::vector<unsigned char> vchP(32);
+    
+    // Use modern OpenSSL 3.x EVP_PKEY_derive based ECDH
+    if (!ComputeECDHSharedSecret(keyDest.begin(), cpkR.begin(), cpkR.size(), &vchP[0]))
     {
-        printf("Could not set pubkey for R: %s.\n", ValueString(cpkR.Raw()).c_str());
-        return 1;
-    };
-
-    CECKey ecKeyDest;
-    ecKeyDest.SetSecretBytes(keyDest.begin());
-
-
-
-
-    // -- Do an EC point multiply with private key k and public key R. This gives you public key P.
-    std::vector<unsigned char> vchP;
-    vchP.resize(32);
-    EC_KEY* pkeyk = ecKeyDest.GetECKey();
-    EC_KEY* pkeyR = ecKeyR.GetECKey();
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    ECDH_set_method(pkeyk, ECDH_OpenSSL());
-#else
-     EC_KEY_set_method(pkeyk, EC_KEY_OpenSSL());
-#endif
-    int lenPdec = ECDH_compute_key(&vchP[0], 32, EC_KEY_get0_public_key(pkeyR), pkeyk, NULL);
-
-    if (lenPdec != 32)
-    {
-        printf("ECDH_compute_key failed, lenPdec: %d.\n", lenPdec);
+        printf("ComputeECDHSharedSecret failed during decrypt.\n");
         return 1;
     };
 
@@ -3986,33 +3970,30 @@ int SecureMsgDecrypt(bool fTestOnly, std::string& address, unsigned char *pHeade
 
     // -- Message authentication code, (hash of timestamp + destination + payload)
     unsigned char MAC[32];
+    
+    // OpenSSL 3.x: Use EVP_MAC for HMAC computation
+    EVP_MAC *hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *hmac_ctx = EVP_MAC_CTX_new(hmac);
+    OSSL_PARAM macParams[2];
+    macParams[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA256", 0);
+    macParams[1] = OSSL_PARAM_construct_end();
+    
     bool fHmacOk = true;
-    unsigned int nBytes = 32;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    HMAC_CTX ctx;
-    HMAC_CTX_init(&ctx);
-
-    if (!HMAC_Init_ex(&ctx, &key_m[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(&ctx, (unsigned char*) &psmsg->timestamp, sizeof(psmsg->timestamp))
-        || !HMAC_Update(&ctx, pPayload, nPayload)
-        || !HMAC_Final(&ctx, MAC, &nBytes)
-        || nBytes != 32)
+    size_t macLen = 32;
+    
+    if (EVP_MAC_init(hmac_ctx, &key_m[0], 32, macParams) != 1)
         fHmacOk = false;
-
-    HMAC_CTX_cleanup(&ctx);
-#else
-    HMAC_CTX *ctx;
-    ctx = HMAC_CTX_new();
-
-    if (!HMAC_Init_ex(ctx, &key_m[0], 32, EVP_sha256(), NULL)
-        || !HMAC_Update(ctx, (unsigned char*) &psmsg->timestamp, sizeof(psmsg->timestamp))
-        || !HMAC_Update(ctx, pPayload, nPayload)
-        || !HMAC_Final(ctx, MAC, &nBytes)
-        || nBytes != 32)
+    if (fHmacOk && EVP_MAC_update(hmac_ctx, (unsigned char*)&psmsg->timestamp, sizeof(psmsg->timestamp)) != 1)
         fHmacOk = false;
-
-    HMAC_CTX_free(ctx);
-#endif
+    if (fHmacOk && EVP_MAC_update(hmac_ctx, pPayload, nPayload) != 1)
+        fHmacOk = false;
+    if (fHmacOk && EVP_MAC_final(hmac_ctx, MAC, &macLen, 32) != 1)
+        fHmacOk = false;
+    if (macLen != 32)
+        fHmacOk = false;
+    
+    EVP_MAC_CTX_free(hmac_ctx);
+    EVP_MAC_free(hmac);
 
     if (!fHmacOk)
     {

@@ -3,15 +3,15 @@
 
 //
 // client versioning
-// Codename C A R S E N  W A S  H E R E
-// Denarius v3.3.9.14 by @carsenk (https://github.com/carsenk/denarius)
+// Antoninianus - Forked from Denarius
+// Antoninianus v4.0.0 - OpenSSL 3.x Modernization
 //
 
 // These need to be macros, as version.cpp's and bitcoin-qt.rc's voodoo requires it
-#define CLIENT_VERSION_MAJOR       3
-#define CLIENT_VERSION_MINOR       3
-#define CLIENT_VERSION_REVISION    9
-#define CLIENT_VERSION_BUILD       14
+#define CLIENT_VERSION_MAJOR       4
+#define CLIENT_VERSION_MINOR       0
+#define CLIENT_VERSION_REVISION    0
+#define CLIENT_VERSION_BUILD       0
 
 // Converts the parameter X to a string after macro replacement on X has been performed.
 // Don't merge these into one macro!

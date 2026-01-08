@@ -1,140 +1,98 @@
-# Denarius [D]
-Tribus Algo PoW/PoS Hybrid Cryptocurrency
+# Antoninianus [ANT]
 
-![logo](http://i.imgur.com/gIe5vnw.png)
+Tribus Algo PoW/PoS Hybrid Cryptocurrency - Forked from Denarius
 
-[![GitHub version](https://img.shields.io/github/release/metaspartan/denarius.svg)](https://badge.fury.io/gh/metaspartan%2Fdenarius)
-[![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/metaspartan/denarius/blob/master/COPYING)
-[![Denarius downloads](https://img.shields.io/github/downloads/metaspartan/denarius/total.svg)](https://github.com/carsenk/denarius/releases)
-[![Denarius lateat release downloads](https://img.shields.io/github/downloads/metaspartan/denarius/latest/total)](https://github.com/metaspartan/denarius/releases)
-[![Join the chat at https://discord.gg/AcThv2y](https://img.shields.io/badge/Discord-Chat-blue.svg?logo=discord)](https://discord.gg/AcThv2y)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Fortr4n/Antoninianus/blob/master/COPYING)
+[![Build Status](https://github.com/Fortr4n/Antoninianus/actions/workflows/ci.yml/badge.svg)](https://github.com/Fortr4n/Antoninianus/actions)
 
-<a href="https://discord.gg/UPpQy3n"><img src="https://discordapp.com/api/guilds/334361453320732673/embed.png" alt="Discord server" /></a>
+## Introduction
 
-![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/metaspartan/denarius.svg) ![GitHub repo size in bytes](https://img.shields.io/github/repo-size/metaspartan/denarius.svg)
+Antoninianus is a privacy-focused, hybrid cryptocurrency forked from Denarius with modernized cryptographic foundations.
 
-[![Denarius Snapcraft](https://snapcraft.io/denarius/badge.svg)](https://snapcraft.io/denarius)
+**Ticker:** ANT
 
-![Code Climate](https://codeclimate.com/github/metaspartan/denarius/badges/gpa.svg)
+Antoninianus [ANT] is an optionally anonymous, decentralized, energy efficient, Proof-of-Work (Tribus Algorithm) and Proof-of-Stake cryptocurrency.
 
-[![Build Status](https://travis-ci.org/metaspartan/denarius.svg?branch=master)](https://travis-ci.org/metaspartan/denarius)
+## What's New in v4.0.0
 
-[![Build history](https://buildstats.info/travisci/chart/metaspartan/denarius?branch=master)](https://travis-ci.org/metaspartan/denarius?branch=master)
+- **OpenSSL 3.x Support** - Full migration to modern cryptographic APIs
+- **Comprehensive EVP API** - EVP_PKEY, EVP_DigestSign/Verify, EVP_MAC
+- **Modernized CI/CD** - GitHub Actions with multi-platform builds
+- **Security Hardened** - Removed all deprecated OpenSSL functions
 
-Intro
-==========================
-Denarius is a true optionally anonymous, untraceable, and secure hybrid cryptocurrency.
+## Supported Operating Systems
 
-Ticker: D
+- Linux 64-bit (Ubuntu 22.04+ recommended)
+- Windows 64-bit
+- macOS 11+
 
-Denarius [D] is an optionally anonymous, decentralized, energy efficient, Proof-of-Work (New Tribus Algorithm) and Proof-of-Stake cryptocurrency.
-10,000,000 D max with Denarius Domain Names via the Denarius NVS.
+## Building from Source
 
-Supported Operating Systems
-==========================
-* Linux 64-bit
-* Windows 64-bit
-* macOS 10.11+
+### Linux (Ubuntu 22.04+)
 
-Install Denarius with Snap on any Linux Distro
-==========================
-* `sudo apt install snapd`
-* `sudo snap install denarius`
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install build-essential libssl-dev libdb++-dev \
+    libboost-all-dev libqt5gui5 libqt5core5a libqt5dbus5 \
+    qttools5-dev qttools5-dev-tools libprotobuf-dev \
+    protobuf-compiler libqrencode-dev libminiupnpc-dev \
+    libcurl4-openssl-dev libevent-dev
 
-* `denarius` for running the QT
-* `denarius.daemon` for running denariusd
+# Build Qt wallet
+qmake antoninianus-qt.pro
+make -j$(nproc)
+```
 
-Specifications
-==========================
-* Total number of coins: 10,000,000 D
-* Ideal block time: 30 seconds
-* Stake interest: 6% annual static inflation
-* Confirmations: 10 blocks
-* Maturity: 30 blocks (15 minutes)
-* Min stake age: 8 hours
+### macOS
 
-* Cost of Hybrid Fortuna Stakes: 5,000 D
-* Hybrid Fortuna Stake Reward: 33% of the current block reward
-* P2P Port: 33369, Testnet Port: 33368
-* RPC Port: 32369, Testnet RPC Port: 32368
-* Fortuna Stake Port: 9999, Testnet Port: 19999
+```bash
+# Install dependencies via Homebrew
+brew install openssl@3 boost berkeley-db@4 qt@5 miniupnpc libqrencode
 
-* D Magic Number: 0xb4eff2fa
-* BIP44 CoinType: 116
-* Base58 Pubkey Decimal: 30
-* Base58 Scriptkey Decimal: 90
-* Base58 Privkey Decimal: 158
+# Build
+qmake antoninianus-qt.pro
+make -j$(sysctl -n hw.ncpu)
+```
 
-Technology
-==========================
-* Hybrid PoW/PoS Fortuna Stakes
-* Decentralized Domain Names within the Denarius NVS (.bitcoin, .btc, .d, .dnr, .denarii, .ipfs, .sys, .king, and more)
-* Name Registration is 0.1 D, 0.09 D goes to miners and stakers
-* Stealth addresses
-* Ring Signatures (16 Recommended)
-* Native Optional Tor Onion Node (-nativetor=1)
-* Encrypted Messaging
-* Multi-Signature Addresses & TXs
-* Atomic Swaps using UTXOs (BIP65 CLTV)
-* BIP39 Support (Coin Type 116)
-* Proof of Data (Image/Data Timestamping)
-* Fast 30 Second Block Times
-* New/First Tribus PoW Algorithm comprising of 3 NIST5 algorithms
-* Tribus PoW/PoS Hybrid
-* Full decentralization
-* Jupiter - IPFS API Implementation with Anonymous Decentralized File Uploads (UI and RPC)
+## Specifications
 
-LINKS
-==========================
-* Official Website(https://denarius.io/)
-* Official Forums(https://blockforums.org/)
-* Denarius Twitter(https://twitter.com/denariuscoin)
-* Denarius Discord Chat(https://discord.gg/C64HXbc)
+| Parameter      | Value          |
+| -------------- | -------------- |
+| Total Supply   | 10,000,000 ANT |
+| Block Time     | 30 seconds     |
+| Stake Interest | 6% annual      |
+| Confirmations  | 10 blocks      |
+| Maturity       | 30 blocks      |
+| Min Stake Age  | 8 hours        |
+| P2P Port       | 33369          |
+| RPC Port       | 32369          |
 
-ASCII CAST TUTORIALS
-==========================
-[![asciicast](https://asciinema.org/a/179356.png)](https://asciinema.org/a/179356)
-[![asciicast](https://asciinema.org/a/179362.png)](https://asciinema.org/a/179362)
-[![asciicast](https://asciinema.org/a/179355.png)](https://asciinema.org/a/179355)
+## Technology
 
-denariusqtubuntu.sh by Buzzkillb
-===========================
-Compile the latest Denarius QT (Graphical Wallet) Ubuntu 16.04 or Ubuntu 18.04+
+- Hybrid PoW/PoS Fortuna Stakes
+- Decentralized Domain Names (NVS)
+- Stealth Addresses
+- Ring Signatures (16 Recommended)
+- Native Optional Tor Onion Node
+- Encrypted Messaging
+- Multi-Signature Addresses & TXs
+- Atomic Swaps (BIP65 CLTV)
+- BIP39 Support (Coin Type 116)
+- Proof of Data Timestamping
+- Tribus PoW Algorithm
+- Jupiter IPFS Integration
 
-Credits to Buzzkillb for the creation of this bash script, original repository: https://github.com/buzzkillb/denarius-qt/
+## Development
 
-Compiles Denarius QT Ubuntu 16.04 or 18.04, Grabs latest chaindata, and populates denarius.conf with addnodes or can update a previous compile to the latest master branch.  
-```bash -c "$(wget -O - https://raw.githubusercontent.com/carsenk/denarius/master/denariusqtubuntu.sh)"```  
+Developers work in their own trees, then submit pull requests when ready.
 
-To turn on nativetor in denarius.conf  
-```nativetor=1```  
+The master branch is regularly built and tested via GitHub Actions CI.
 
-![Denarius Installer Menu](https://raw.githubusercontent.com/buzzkillb/denarius-qt/master/compile-menu.PNG)  
+## Credits
 
-Development process
-===========================
+Antoninianus is forked from [Denarius](https://github.com/carsenk/denarius) by @carsenk.
 
-Developers work in their own trees, then submit pull requests when
-they think their feature or bug fix is ready.
+## License
 
-The patch will be accepted if there is broad consensus that it is a
-good thing.  Developers should expect to rework and resubmit patches
-if they don't match the project's coding conventions (see coding.txt)
-or are controversial.
-
-The master branch is regularly built and tested, but is not guaranteed
-to be completely stable. Tags are regularly created to indicate new
-stable release versions of Denarius.
-
-Feature branches are created when there are major new features being
-worked on by several people.
-
-From time to time a pull request will become outdated. If this occurs, and
-the pull is no longer automatically mergeable; a comment on the pull will
-be used to issue a warning of closure. The pull will be closed 15 days
-after the warning if action is not taken by the author. Pull requests closed
-in this manner will have their corresponding issue labeled 'stagnant'.
-
-Issues with no commits will be given a similar warning, and closed after
-15 days from their last activity. Issues closed in this manner will be
-labeled 'stale'.
+Antoninianus is released under the MIT License. See [COPYING](COPYING) for details.
