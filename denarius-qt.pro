@@ -87,7 +87,7 @@ lessThan(QT_MAJOR_VERSION, 5): win32: QMAKE_LFLAGS *= -static
 # use: qmake "USE_IPFS=1" ( enabled by default; default)
 #  or: qmake "USE_IPFS=0" (disabled by default)
 #  or: qmake "USE_IPFS=-" (not supported)
-# D E N A R I U S IPFS - USE_IPFS=- to not compile with the IPFS C Library located in src/ipfs
+# A N T O N I N I A N U S IPFS - USE_IPFS=- to not compile with the IPFS C Library located in src/ipfs
 contains(USE_IPFS, -) {
     message(Building without IPFS support)
 } else {
@@ -107,7 +107,7 @@ contains(USE_IPFS, -) {
 # use: qmake "USE_NATIVETOR=1" ( enabled by default; default)
 #  or: qmake "USE_NATIVETOR=0" (disabled by default)
 #  or: qmake "USE_NATIVETOR=-" (not supported)
-# D E N A R I U S Native Tor - USE_NATIVETOR=- to not compile with the Tor C Library by Tor Project located in src/tor OpenSSL 1.1 Compat not available with Native Tor
+# A N T O N I N I A N U S Native Tor - USE_NATIVETOR=- to not compile with the Tor C Library by Tor Project located in src/tor OpenSSL 1.1 Compat not available with Native Tor
 contains(USE_NATIVETOR, -) {
     message(Building without Native Tor support)
 } else {
@@ -508,7 +508,7 @@ HEADERS += src/qt/bitcoingui.h \
     src/qt/transactionfilterproxy.h \
     src/qt/transactionview.h \
     src/qt/walletmodel.h \
-    src/denariusrpc.h \
+    src/antoninianusrpc.h \
     src/qt/overviewpage.h \
     src/qt/csvmodelwriter.h \
     src/crypter.h \
@@ -619,7 +619,7 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/qt/transactionfilterproxy.cpp \
     src/qt/transactionview.cpp \
     src/qt/walletmodel.cpp \
-    src/denariusrpc.cpp \
+    src/antoninianusrpc.cpp \
     src/rpcdump.cpp \
     src/rpcnet.cpp \
     src/rpcmining.cpp \
@@ -670,7 +670,7 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/fortunastakeconfig.cpp \
     src/spork.cpp
 
-#### D e n a r i u s sources
+#### A n t o n i n i a n u s sources
 
 RESOURCES += \
     src/qt/bitcoin.qrc \
@@ -794,8 +794,8 @@ macx:HEADERS += src/qt/macdockiconhandler.h src/qt/macnotificationhandler.h
 macx:OBJECTIVE_SOURCES += src/qt/macdockiconhandler.mm src/qt/macnotificationhandler.mm
 macx:LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
 macx:DEFINES += MAC_OSX MSG_NOSIGNAL=0
-macx:ICON = src/qt/res/icons/denarius.icns
-macx:TARGET = "Denarius"
+macx:ICON = src/qt/res/icons/antoninianus.icns
+macx:TARGET = "Antoninianus"
 macx:QMAKE_CFLAGS_THREAD += -pthread
 macx:QMAKE_LFLAGS_THREAD += -pthread
 macx:QMAKE_MACOSX_DEPLOYMENT_TARGET = 11
