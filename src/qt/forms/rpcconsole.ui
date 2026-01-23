@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Denarius - Debug window</string>
+   <string>Antoninianus - Debug window</string>
   </property>
   <widget class="QTabWidget" name="tabWidget">
    <property name="geometry">
@@ -63,7 +63,7 @@
         </font>
        </property>
        <property name="text">
-        <string>Denarius Core</string>
+        <string>Antoninianus Core</string>
        </property>
       </widget>
      </item>
@@ -342,7 +342,7 @@
      <item row="23" column="0">
       <widget class="QPushButton" name="showCLOptionsButton">
        <property name="toolTip">
-        <string>Show the Denarius-Qt help message to get a list with possible Denarius command-line options.</string>
+        <string>Show the Antoninianus-Qt help message to get a list with possible Antoninianus command-line options.</string>
        </property>
        <property name="text">
         <string>&amp;Show</string>
@@ -368,7 +368,7 @@
      <item row="21" column="0">
       <widget class="QPushButton" name="openDebugLogfileButton">
        <property name="toolTip">
-        <string>Open the Denarius debug log file from the current data directory. This can take a few seconds for large log files.</string>
+        <string>Open the Antoninianus debug log file from the current data directory. This can take a few seconds for large log files.</string>
        </property>
        <property name="text">
         <string>&amp;Open</string>
@@ -1349,7 +1349,7 @@
       </font>
      </property>
      <property name="text">
-      <string>The buttons below will restart the Denarius QT with configurations to repair your wallet.dat. It will possibly resolve issues with corrupted blockchain files or missing/obsolete transactions. It is not recommended to use these options if your wallet.dat is functioning fine. (ONLY USE THESE OPTIONS IF YOU NEED TO REPAIR!) Try using the command &lt;b&gt;&quot;repairwallet&quot;&lt;/b&gt; in the Debug Window first.</string>
+      <string>The buttons below will restart the Antoninianus QT with configurations to repair your wallet.dat. It will possibly resolve issues with corrupted blockchain files or missing/obsolete transactions. It is not recommended to use these options if your wallet.dat is functioning fine. (ONLY USE THESE OPTIONS IF YOU NEED TO REPAIR!) Try using the command &lt;b&gt;&quot;repairwallet&quot;&lt;/b&gt; in the Debug Window first.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -1384,7 +1384,7 @@
       </rect>
      </property>
      <property name="title">
-      <string>Denarius Wallet.dat Repair Options</string>
+      <string>Antoninianus Wallet.dat Repair Options</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
