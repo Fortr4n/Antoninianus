@@ -25,7 +25,7 @@ const QString BaseURL = "https://antoninianus.io/dnrusd.php";
 const QString BaseURL2 = "https://antoninianus.io/dnrbtc.php";
 const QString BaseURL3 = "https://antoninianus.io/newsfeed.php";
 const QString BaseURL4 = "https://antoninianus.io/dnreur.php";
-double denariusx;
+double antx;
 double dnreurx;
 double dnrbtcx;
 
@@ -186,11 +186,11 @@ void OverviewPage::getRequest1( const QString &urlString )
       //qDebug(readBuffer);
       //qDebug("cURL Request: %s", readBuffer.c_str());
 
-        QString denarius = QString::fromStdString(readBuffer);
-        denariusx = (denarius.toDouble());
-        denarius = QString::number(denariusx, 'f', 2);
+        QString coinPrice = QString::fromStdString(readBuffer);
+        antx = (coinPrice.toDouble());
+        coinPrice = QString::number(antx, 'f', 2);
 
-        dollarg = denarius;
+        dollarg = coinPrice;
     }
 }
 

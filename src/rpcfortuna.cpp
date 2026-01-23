@@ -679,7 +679,7 @@ Value fortunastake(const Array& params, bool fHelp)
                 //remoteObj.push_back(Pair("collateral", address2.ToString()));
 				//remoteObj.push_back(Pair("collateral", CBitcoinAddress(mne->pubKeyCollateralAddress.GetID()).ToString()));
 
-                //DENARIUS - Q0FSU0VOIEtMT0NL
+                //ANTONINIANUS - Q0FSU0VOIEtMT0NL
 
                 bool mnfound = false;
                 for (CFortunaStake& mn : vecFortunastakes)

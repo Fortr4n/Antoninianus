@@ -1988,10 +1988,10 @@ NameTxReturn name_delete(const vector<unsigned char> &vchName)
 // {
 //     printf("Scanning Antoninianus's chain for names to create a fast index...\n");
 
-//     // create empty denariusnameindex.dat
+//     // create empty antoninianusnamesindex.dat
 //     CNameDB dbName("cr+");
 
-//     // scan blockchain to fill denariusnameindex.dat
+//     // scan blockchain to fill antoninianusnamesindex.dat
 //     CTxDB txdb("r");
 //     CBlockIndex* pindex = pindexGenesisBlock;
 //     {

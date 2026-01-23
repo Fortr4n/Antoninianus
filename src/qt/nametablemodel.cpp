@@ -72,7 +72,7 @@ public:
         //     CNameIndex txName = pairScan.second.first;
         //     int nExpiresAt    = pairScan.second.second;
         //     bool someMine = false;
-        //     string addy = "denarius";
+        //     string addy = "antoninianus";
 
         //     vector<unsigned char> vchValue = txName.vchValue;
         //     string value = stringFromVch(vchValue);

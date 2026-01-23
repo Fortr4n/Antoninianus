@@ -266,7 +266,7 @@ DDns::~DDns() {
 void DDns::StatRun(void *p) {
   DDns *obj = (DDns*)p;
   obj->Run();
-//denarius  ExitThread(0);
+//antoninianus  ExitThread(0);
 } // DDns::StatRun
 
 /*---------------------------------------------------*/

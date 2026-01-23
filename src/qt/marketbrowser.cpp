@@ -19,11 +19,11 @@ const QString kBaseUrl2 = "https://antoninianus.io/dnrmc.php";
 const QString kBaseUrl3 = "https://antoninianus.io/dnrbtc.php";
 
 QString bitcoinp = "";
-QString denariusp = "";
+QString antp = "";
 QString dnrmcp = "";
 QString dnrbtcp = "";
 double bitcoin2;
-double denarius2;
+double ant2;
 double dnrmc2;
 double dnrbtc2;
 QString bitcoing;
@@ -96,21 +96,21 @@ void MarketBrowser::getRequest1( const QString &urlString )
       //qDebug(readBuffer);
     //   qDebug("D cURL Request: %s", readBuffer.c_str());
 
-        QString denarius = QString::fromStdString(readBuffer);
-        denarius2 = (denarius.toDouble());
-        denarius = QString::number(denarius2, 'f', 2);
+        QString coinPrice = QString::fromStdString(readBuffer);
+        ant2 = (coinPrice.toDouble());
+        coinPrice = QString::number(ant2, 'f', 2);
 
-        if(denarius > denariusp)
+        if(coinPrice > antp)
         {
-            ui->denarius->setText("<font color=\"yellow\">$" + denarius + "</font>");
-        } else if (denarius < denariusp) {
-            ui->denarius->setText("<font color=\"red\">$" + denarius + "</font>");
+            ui->antoninianus->setText("<font color=\"yellow\">$" + coinPrice + "</font>");
+        } else if (coinPrice < antp) {
+            ui->antoninianus->setText("<font color=\"red\">$" + coinPrice + "</font>");
             } else {
-        ui->denarius->setText("$"+denarius+" USD");
+        ui->antoninianus->setText("$"+coinPrice+" USD");
         }
 
-        denariusp = denarius;
-        dollarg = denarius;
+        antp = coinPrice;
+        dollarg = coinPrice;
     }
 }
 

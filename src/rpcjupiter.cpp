@@ -479,11 +479,11 @@ Value jupiterupload(const Array& params, bool fHelp)
         }
 
         /*     ￼
-        jupiterupload C:/users/NAME/Dropbox/Antoninianus/denarius-128.png
+        jupiterupload C:/users/NAME/Dropbox/Antoninianus/antoninianus-128.png
         15:45:55        ￼
         {
-        "filename" : "denarius-128.png",
-        "results" : "[{\"hash\":\"QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT\",\"path\":\"denarius-128.png\",\"size\":47555}]",
+        "filename" : "antoninianus-128.png",
+        "results" : "[{\"hash\":\"QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT\",\"path\":\"antoninianus-128.png\",\"size\":47555}]",
         "ipfshash" : "QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT",
         "ipfslink" : "https://ipfs.infura.io/ipfs/QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT"
         }
@@ -611,11 +611,11 @@ Value jupiterduo(const Array& params, bool fHelp)
         }
 
         /*     ￼
-        jupiterupload C:/users/NAME/Dropbox/Antoninianus/denarius-128.png
+        jupiterupload C:/users/NAME/Dropbox/Antoninianus/antoninianus-128.png
         15:45:55        ￼
         {
-        "filename" : "denarius-128.png",
-        "results" : "[{\"hash\":\"QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT\",\"path\":\"denarius-128.png\",\"size\":47555}]",
+        "filename" : "antoninianus-128.png",
+        "results" : "[{\"hash\":\"QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT\",\"path\":\"antoninianus-128.png\",\"size\":47555}]",
         "ipfshash" : "QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT",
         "ipfslink" : "https://ipfs.infura.io/ipfs/QmYKi7A9PyqywRA4aBWmqgSCYrXgRzri2QF25JKzBMjCxT"
         }
