@@ -216,7 +216,7 @@ Value listunspent(const Array& params, bool fHelp)
                 continue;
         }
 
-        // Ignore Denarius Name TxOut
+        // Ignore Antoninianus Name TxOut
         if (hooks->IsNameTx(out.tx->nVersion) && hooks->IsNameScript(out.tx->vout[out.i].scriptPubKey)) {
             continue;
         }

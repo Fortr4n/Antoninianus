@@ -885,7 +885,7 @@ int64_t CWallet::GetAnonDebit(const CTxIn& txin) const
     if (!txin.IsAnonInput())
         return 0;
 
-    // -- amount of owned denarius decreased
+    // -- amount of owned antoninianus decreased
     // TODO: store links in memory
 
     {
@@ -2721,7 +2721,7 @@ bool CWallet::CreateTransactionInner(const vector<pair<CScript, CAmount> >& vecS
         return false;
     }
 
-    // denarius: define some values used in case of namecoin tx creation
+    // antoninianus: define some values used in case of namecoin tx creation
     CAmount nNameTxInCredit = 0;
     unsigned int nNameTxOut = 0;
     if (!wtxNameIn.IsNull())
@@ -2733,12 +2733,12 @@ bool CWallet::CreateTransactionInner(const vector<pair<CScript, CAmount> >& vecS
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CTransaction txNew;
-    txNew.nVersion = wtxNew.nVersion; // denarius: important for name transactions
+    txNew.nVersion = wtxNew.nVersion; // antoninianus: important for name transactions
 
     {
         LOCK2(cs_main, cs_wallet);
         {
-            nFeeRet = max(nFeeInput, MIN_TX_FEE);  // denarius: a good starting point, probably...
+            nFeeRet = max(nFeeInput, MIN_TX_FEE);  // antoninianus: a good starting point, probably...
             while (true)
             {
                 txNew.vin.clear();
@@ -2793,7 +2793,7 @@ bool CWallet::CreateTransactionInner(const vector<pair<CScript, CAmount> >& vecS
                 set<pair<const CWalletTx*,unsigned int> > setCoins;
                 CAmount nValueIn = 0;
 
-                // denarius: in case of namecoin tx we have already supplied input.
+                // antoninianus: in case of namecoin tx we have already supplied input.
                 // If we have enough money: skip coin selection, unless we have ordered it with coinControl.
                 if (!wtxNameIn.IsNull())
                 {
@@ -2812,7 +2812,7 @@ bool CWallet::CreateTransactionInner(const vector<pair<CScript, CAmount> >& vecS
                     return false;
                 }
 
-		        // denarius: name tx always at first position
+		        // antoninianus: name tx always at first position
                 if (!wtxNameIn.IsNull())
                 {
                     setCoins.insert(setCoins.begin(), make_pair(&wtxNameIn, nNameTxOut));
@@ -2894,7 +2894,7 @@ bool CWallet::CreateTransactionInner(const vector<pair<CScript, CAmount> >& vecS
                 int nIn = 0;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                 {
-                    // denarius: we sign name tx differently.
+                    // antoninianus: we sign name tx differently.
                     if (coin.first == &wtxNameIn && coin.second == nNameTxOut)
                     {
                         if (!SignNameSignatureD(*this, *coin.first, txNew, nIn++))

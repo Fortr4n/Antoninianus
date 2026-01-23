@@ -196,7 +196,7 @@ public:
     int64_t nOrderPosNext;
     std::map<uint256, int> mapRequestCount;
 
-    //Denarius Name DB
+    //Antoninianus Name DB
     std::vector<uint256> vWalletUpdated;
     std::vector<uint256> vCheckNewNames;
 
@@ -964,7 +964,7 @@ public:
             {
                 const CTxOut &txout = vout[i];
 
-                // Ignore Denarius Name TxOut
+                // Ignore Antoninianus Name TxOut
                 if (nVersion == NAME_TX_VERSION && hooks->IsNameScript(vout[i].scriptPubKey)) {
                     continue;
                 }

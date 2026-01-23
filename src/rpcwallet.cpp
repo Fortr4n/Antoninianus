@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2017-2020 Denarius developers
+// Copyright (c) 2017-2020 Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -175,7 +175,7 @@ Value getinfo(const Array& params, bool fHelp)
     return obj;
 }
 
-//Denarius (D) Wallet Lock Status RPC
+//Antoninianus (D) Wallet Lock Status RPC
 //F*** all of you whom rip my code off and do not give credit. Q0FSU0VOIEtMT0NL
 //Q0FSU0VOIEtMT0NL
 Value walletstatus(const Array& params, bool fHelp)
@@ -1859,7 +1859,7 @@ Value walletpassphrase(const Array& params, bool fHelp)
 
     //fWalletUnlockStakingOnly = false;
 
-    // Denarius: if user OS account compromised prevent trivial sendmoney commands
+    // Antoninianus: if user OS account compromised prevent trivial sendmoney commands
     // if (params.size() > 2 && params[2].get_bool() == true)
         // fWalletUnlockStakingOnly = true;
 	if (params.size() > 2)
