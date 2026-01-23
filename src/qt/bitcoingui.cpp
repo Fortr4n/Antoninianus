@@ -1124,12 +1124,12 @@ void BitcoinGUI::showConfEditor()
 {
     boost::filesystem::path pathConfig = GetConfigFile();
 
-    /* Open denarius.conf with the associated application */
+    /* Open antoninianus.conf with the associated application */
     if (boost::filesystem::exists(pathConfig)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(pathConfig.string())));
 	} else {
-		QMessageBox::warning(this, tr("No denarius.conf"),
-        tr("Your denarius.conf does not exist! Please create one in your Antoninianus data directory."),
+		QMessageBox::warning(this, tr("No antoninianus.conf"),
+        tr("Your antoninianus.conf does not exist! Please create one in your Antoninianus data directory."),
         QMessageBox::Ok, QMessageBox::Ok);
 	}
 	//GUIUtil::openConfigfile();
