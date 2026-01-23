@@ -564,14 +564,14 @@
              <string notr="true"/>
             </property>
             <property name="text">
-             <string>Denarius Wallet</string>
+             <string>Antoninianus Wallet</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="labelWalletStatus">
             <property name="toolTip">
-             <string>The displayed information may be out of date. Your wallet automatically synchronizes with the Denarius network after a connection is established, but this process has not completed yet.</string>
+             <string>The displayed information may be out of date. Your wallet automatically synchronizes with the Antoninianus network after a connection is established, but this process has not completed yet.</string>
             </property>
             <property name="styleSheet">
              <string notr="true">QLabel { color: red; }</string>
@@ -695,7 +695,7 @@
         <item>
          <widget class="QLabel" name="labelTransactionsStatus">
           <property name="toolTip">
-           <string>The displayed information may be out of date. Your wallet automatically synchronizes with the Denarius network after a connection is established, but this process has not completed yet.</string>
+           <string>The displayed information may be out of date. Your wallet automatically synchronizes with the Antoninianus network after a connection is established, but this process has not completed yet.</string>
           </property>
           <property name="styleSheet">
            <string notr="true">QLabel { color: red; }</string>
@@ -784,7 +784,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Denarius News:</string>
+           <string>Antoninianus News:</string>
           </property>
          </widget>
         </item>

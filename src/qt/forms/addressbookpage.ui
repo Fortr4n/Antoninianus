@@ -143,7 +143,7 @@
      <item>
       <widget class="QPushButton" name="signMessage">
        <property name="toolTip">
-        <string>Sign a message to prove you own a Denarius address</string>
+        <string>Sign a message to prove you own a Antoninianus address</string>
        </property>
        <property name="text">
         <string>Sign &amp;Message</string>
@@ -157,7 +157,7 @@
      <item>
       <widget class="QPushButton" name="verifyMessage">
        <property name="toolTip">
-        <string>Verify a message to ensure it was signed with a specified Denarius address</string>
+        <string>Verify a message to ensure it was signed with a specified Antoninianus address</string>
        </property>
        <property name="text">
         <string>&amp;Verify Message</string>
