@@ -3069,7 +3069,7 @@ Value txnreport(const Array& params, bool fHelp)
                 if (pwtx->nVersion == ANON_TXN_VERSION
                     && txin.IsAnonInput())
                 {
-                    entry.push_back("DENARIUS in");
+                    entry.push_back("ANTONINIANUS in");
                     entry.push_back("");
                     std::vector<uint8_t> vchImage;
                     txin.ExtractKeyImage(vchImage);
@@ -3169,7 +3169,7 @@ Value txnreport(const Array& params, bool fHelp)
                 if (pwtx->nVersion == ANON_TXN_VERSION
                     && txout.IsAnonOutput())
                 {
-                    entry.push_back("DENARIUS out");
+                    entry.push_back("ANTONINIANUS out");
                     entry.push_back("");
 
                     CPubKey pkCoin    = txout.ExtractAnonPk();

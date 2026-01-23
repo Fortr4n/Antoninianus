@@ -21,10 +21,10 @@
 #define DECORATION_SIZE 36
 #define NUM_ITEMS 7
 
-const QString BaseURL = "https://denarius.io/dnrusd.php";
-const QString BaseURL2 = "https://denarius.io/dnrbtc.php";
-const QString BaseURL3 = "https://denarius.io/newsfeed.php";
-const QString BaseURL4 = "https://denarius.io/dnreur.php";
+const QString BaseURL = "https://antoninianus.io/dnrusd.php";
+const QString BaseURL2 = "https://antoninianus.io/dnrbtc.php";
+const QString BaseURL3 = "https://antoninianus.io/newsfeed.php";
+const QString BaseURL4 = "https://antoninianus.io/dnreur.php";
 double denariusx;
 double dnreurx;
 double dnrbtcx;

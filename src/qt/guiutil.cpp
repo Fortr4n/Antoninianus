@@ -174,7 +174,7 @@ void setupAmountWidget(QLineEdit *widget, QWidget *parent)
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
     // NovaCoin: check prefix
-    if(uri.scheme() != QString("denarius"))
+    if(uri.scheme() != QString("antoninianus"))
         return false;
 
     SendCoinsRecipient rv;
@@ -219,13 +219,13 @@ bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 
 bool parseBitcoinURI(QString uri, SendCoinsRecipient *out)
 {
-    // Convert denarius:// to denarius:
+    // Convert antoninianus:// to antoninianus:
     //
     //    Cannot handle this later, because bitcoin:// will cause Qt to see the part after // as host,
     //    which will lower-case it (and thus invalidate the address).
-    if(uri.startsWith("denarius://"))
+    if(uri.startsWith("antoninianus://"))
     {
-        uri.replace(0, 12, "denarius:");
+        uri.replace(0, 12, "antoninianus:");
     }
     QUrl uriInstance(uri);
     return parseBitcoinURI(uriInstance, out);
@@ -378,7 +378,7 @@ void openConfigfile()
 {
     boost::filesystem::path pathConfig = GetConfigFile();
 
-    /* Open denarius.conf with the associated application */
+    /* Open antoninianus.conf with the associated application */
     if (boost::filesystem::exists(pathConfig))
         QDesktopServices::openUrl(QUrl::fromLocalFile(boostPathToQString(pathConfig)));
 }
@@ -501,7 +501,7 @@ boost::filesystem::path static GetAutostartDir()
 
 boost::filesystem::path static GetAutostartFilePath()
 {
-    return GetAutostartDir() / "denarius.desktop";
+    return GetAutostartDir() / "antoninianus.desktop";
 }
 
 bool GetStartOnSystemStartup()
@@ -592,21 +592,21 @@ LSSharedFileListItemRef findStartupItemInList(LSSharedFileListRef list, CFURLRef
 
 bool GetStartOnSystemStartup()
 {
-    CFURLRef denariusAppURL = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+    CFURLRef antoninianusAppURL = CFBundleCopyBundleURL(CFBundleGetMainBundle());
     LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
-    LSSharedFileListItemRef foundItem = findStartupItemInList(loginItems, denariusAppURL);
+    LSSharedFileListItemRef foundItem = findStartupItemInList(loginItems, antoninianusAppURL);
     return !!foundItem; // return boolified object
 }
 
 bool SetStartOnSystemStartup(bool fAutoStart)
 {
-    CFURLRef denariusAppURL = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+    CFURLRef antoninianusAppURL = CFBundleCopyBundleURL(CFBundleGetMainBundle());
     LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
-    LSSharedFileListItemRef foundItem = findStartupItemInList(loginItems, denariusAppURL);
+    LSSharedFileListItemRef foundItem = findStartupItemInList(loginItems, antoninianusAppURL);
 
     if(fAutoStart && !foundItem) {
-        // add denarius app to startup item list
-        LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst, NULL, NULL, denariusAppURL, NULL, NULL);
+        // add antoninianus app to startup item list
+        LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst, NULL, NULL, antoninianusAppURL, NULL, NULL);
     }
     else if(!fAutoStart && foundItem) {
         // remove item
@@ -628,7 +628,7 @@ HelpMessageBox::HelpMessageBox(QWidget *parent) :
     header = tr("Denarius-Qt") + " " + tr("version") + " " +
         QString::fromStdString(FormatFullVersion()) + "\n\n" +
         tr("Usage:") + "\n" +
-        "  denarius-qt [" + tr("command-line options") + "]                     " + "\n";
+        "  antoninianus-qt [" + tr("command-line options") + "]                     " + "\n";
 
     coreOptions = QString::fromStdString(HelpMessage());
 

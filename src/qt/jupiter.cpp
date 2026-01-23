@@ -74,7 +74,7 @@ void Jupiter::on_createPodButton_clicked()
 #ifdef USE_IPFS
 fJupiterLocal = GetBoolArg("-jupiterlocal");
 
-if (QMessageBox::Yes == QMessageBox(QMessageBox::Information, "Denarius Jupiter POD", "Warning: This costs 0.001 D to timestamp your IPFS file hash on the Denarius blockchain.", QMessageBox::Yes|QMessageBox::No).exec()) 
+if (QMessageBox::Yes == QMessageBox(QMessageBox::Information, "Antoninianus Jupiter POD", "Warning: This costs 0.001 D to timestamp your IPFS file hash on the Antoninianus blockchain.", QMessageBox::Yes|QMessageBox::No).exec()) 
 {
     //qDebug() << "Yes was clicked";
 
@@ -124,7 +124,7 @@ if (QMessageBox::Yes == QMessageBox(QMessageBox::Information, "Denarius Jupiter 
 
         //Jupiter POD
         if (hash != "") {
-          //Hash the file for Denarius Jupiter POD
+          //Hash the file for Antoninianus Jupiter POD
           //uint256 imagehash = SerializeHash(ipfsContents);
           CKeyID keyid(Hash160(hash.begin(), hash.end()));
           CBitcoinAddress baddr = CBitcoinAddress(keyid);
@@ -230,7 +230,7 @@ if (QMessageBox::Yes == QMessageBox(QMessageBox::Information, "Denarius Jupiter 
 
         //Jupiter POD
         if (hash != "") {
-          //Hash the file for Denarius Jupiter POD
+          //Hash the file for Antoninianus Jupiter POD
           //uint256 imagehash = SerializeHash(ipfsContents);
           CKeyID keyid(Hash160(hash.begin(), hash.end()));
           CBitcoinAddress baddr = CBitcoinAddress(keyid);

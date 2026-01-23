@@ -331,7 +331,7 @@ QVariant NameTableModel::headerData(int section, Qt::Orientation orientation, in
             switch (section)
             {
             case Name:
-                return tr("Name registered using Denarius.");
+                return tr("Name registered using Antoninianus.");
             case Value:
                 return tr("Data associated with the name.");
             case Address:
