@@ -402,7 +402,7 @@ bool GetMyExternalIP(CNetAddr& ipRet)
 
             pszGet = "GET / HTTP/1.1\r\n"
                      "Host: checkip.dyndns.org\r\n"
-                     "User-Agent: Denarius\r\n"
+                     "User-Agent: Antoninianus\r\n"
                      "Connection: close\r\n"
                      "\r\n";
 
@@ -421,7 +421,7 @@ bool GetMyExternalIP(CNetAddr& ipRet)
 
             pszGet = "GET /simple/ HTTP/1.1\r\n"
                      "Host: www.showmyip.com\r\n"
-                     "User-Agent: Denarius\r\n"
+                     "User-Agent: Antoninianus\r\n"
                      "Connection: close\r\n"
                      "\r\n";
 
@@ -458,7 +458,7 @@ bool GetMyExternalIP_STUN(CNetAddr& ipRet) {
 void ThreadGetMyExternalIP(void* parg)
 {
     // Make this thread recognisable as the external IP detection thread
-    RenameThread("denarius-ext-ip");
+    RenameThread("antoninianus-ext-ip");
 
     CNetAddr addrLocalHost;
     if (GetMyExternalIP_STUN(addrLocalHost)) //GetMyExternalIP by STUN instead now
@@ -1213,7 +1213,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 void ThreadSocketHandler(void* parg)
 {
     // Make this thread recognisable as the networking thread
-    RenameThread("denarius-net");
+    RenameThread("antoninianus-net");
 
     try
     {
@@ -1520,7 +1520,7 @@ void ThreadSocketHandler2(void* parg)
 void ThreadMapPort(void* parg)
 {
     // Make this thread recognisable as the UPnP thread
-    RenameThread("denarius-UPnP");
+    RenameThread("antoninianus-UPnP");
 
     try
     {
@@ -1588,7 +1588,7 @@ void ThreadMapPort2(void* parg)
             }
         }
 
-        string strDesc = "Denarius " + FormatFullVersion();
+        string strDesc = "Antoninianus " + FormatFullVersion();
 #ifndef UPNPDISCOVER_SUCCESS
         /* miniupnpc 1.5 */
         r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
@@ -1719,11 +1719,11 @@ void ThreadOnionSeed(void* parg)
 
 static const char *strDNSSeed[][2] = {
     {"dnsseed.hashbag.cc", "dnsseed.hashbag.cc"},
-    {"seed.denarius.host", "seed.denarius.host"},
-    {"dnsseed.denarius.guide", "dnsseed.denarius.guide"},
-    {"dnsseed.denarius.pro", "dnsseed.denarius.pro"},
-    {"mseed.denarius.guide", "mseed.denarius.guide"},
-    {"bseed.denarius.guide", "bseed.denarius.guide"}
+    {"seed.antoninianus.host", "seed.antoninianus.host"},
+    {"dnsseed.antoninianus.guide", "dnsseed.antoninianus.guide"},
+    {"dnsseed.antoninianus.pro", "dnsseed.antoninianus.pro"},
+    {"mseed.antoninianus.guide", "mseed.antoninianus.guide"},
+    {"bseed.antoninianus.guide", "bseed.antoninianus.guide"}
 };
 
 
@@ -1732,7 +1732,7 @@ void ThreadDNSAddressSeed(void* parg)
     if(!fNativeTor)
     {
         // Make this thread recognisable as the DNS seeding thread
-        RenameThread("denarius-dnsseed");
+        RenameThread("antoninianus-dnsseed");
 
         try
         {
@@ -1841,7 +1841,7 @@ void ThreadDumpAddress2(void* parg)
 void ThreadDumpAddress(void* parg)
 {
     // Make this thread recognisable as the address dumping thread
-    RenameThread("denarius-adrdump");
+    RenameThread("antoninianus-adrdump");
 
     try
     {
@@ -1856,7 +1856,7 @@ void ThreadDumpAddress(void* parg)
 void ThreadOpenConnections(void* parg)
 {
     // Make this thread recognisable as the connection opening thread
-    RenameThread("denarius-opencon");
+    RenameThread("antoninianus-opencon");
 
     try
     {
@@ -2037,7 +2037,7 @@ void ThreadOpenConnections2(void* parg)
 void ThreadOpenAddedConnections(void* parg)
 {
     // Make this thread recognisable as the connection opening thread
-    RenameThread("denarius-opencon");
+    RenameThread("antoninianus-opencon");
 
     try
     {
@@ -2219,7 +2219,7 @@ void static StartSync(const vector<CNode*> &vNodes) {
 void ThreadMessageHandler(void* parg)
 {
     // Make this thread recognisable as the message handling thread
-    RenameThread("denarius-msghand");
+    RenameThread("antoninianus-msghand");
 
     try
     {
@@ -2413,7 +2413,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     {
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
-            strError = strprintf(_("Unable to bind to %s on this computer. Denarius is probably already running."), addrBind.ToString().c_str());
+            strError = strprintf(_("Unable to bind to %s on this computer. Antoninianus is probably already running."), addrBind.ToString().c_str());
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %d, %s)"), addrBind.ToString().c_str(), nErr, strerror(nErr));
         printf("%s\n", strError.c_str());
@@ -2571,7 +2571,7 @@ void StartTor(void* parg)
 void StartNode(void* parg)
 {
     // Make this thread recognisable as the startup thread
-    RenameThread("denarius-start");
+    RenameThread("antoninianus-start");
 
     int64_t nStart = GetTimeMillis();
     // Attempt to find any banned nodes via our banlist.dat

@@ -545,7 +545,7 @@ string SendMoneyWithInputTx(CScript scriptPubKey, int64_t nValue, int64_t nNetFe
     return "";
 }
 
-// scans denariusnamesindex.dat and return names with their last CNameIndex
+// scans antoninianusnamesindex.dat and return names with their last CNameIndex
 bool CNameDB::ScanNames(
         const vector<unsigned char>& vchName,
         unsigned int nMax,
@@ -1600,7 +1600,7 @@ NameTxReturn name_new(const vector<unsigned char> &vchName,
             if (!address.IsValid())
             {
                 ret.err_code = RPC_INVALID_ADDRESS_OR_KEY;
-                ret.err_msg = "Denarius address is invalid";
+                ret.err_msg = "Antoninianus address is invalid";
                 return ret;
             }
             scriptPubKey = GetScriptForDestination(address.Get());
@@ -1796,7 +1796,7 @@ NameTxReturn name_update(const vector<unsigned char> &vchName,
             if (!address.IsValid())
             {
                 ret.err_code = RPC_INVALID_ADDRESS_OR_KEY;
-                ret.err_msg = "Denarius address is invalid";
+                ret.err_msg = "Antoninianus address is invalid";
                 return ret;
             }
             scriptPubKey.SetDestination(address.Get());
@@ -1853,7 +1853,7 @@ Value name_delete(const Array& params, bool fHelp)
                 + HelpRequiringPassphrase());
 
     if (!IsSynchronized())
-        throw runtime_error("Denarius is still downloading - wait until it is done.");
+        throw runtime_error("Antoninianus is still downloading - wait until it is done.");
 
     vector<unsigned char> vchName = vchFromValue(params[0]);
 
@@ -1986,7 +1986,7 @@ NameTxReturn name_delete(const vector<unsigned char> &vchName)
 
 // void createNameIndexFile()
 // {
-//     printf("Scanning Denarius's chain for names to create a fast index...\n");
+//     printf("Scanning Antoninianus's chain for names to create a fast index...\n");
 
 //     // create empty denariusnameindex.dat
 //     CNameDB dbName("cr+");
@@ -2002,12 +2002,12 @@ NameTxReturn name_delete(const vector<unsigned char> &vchName)
 //             pindex = pindex->pnext;
 //         }
 //     }
-//     printf("Scanned Denarius for names successfully!\n");
+//     printf("Scanned Antoninianus for names successfully!\n");
 // }
 
 bool createNameIndexFile()
 {
-    printf("Scanning Denarius blockchain for names to create a fast index...\n");
+    printf("Scanning Antoninianus blockchain for names to create a fast index...\n");
     CNameDB dbName("cr+");
     CTxDB txdb("r");
 
@@ -2397,7 +2397,7 @@ bool CNamecoinHooks::DisconnectInputs(const CTransaction& tx)
 
     NameTxInfo nti;
     if (!DecodeNameTx(tx, nti))
-        return error("DisconnectInputsHook() : could not decode Denarius name tx");
+        return error("DisconnectInputsHook() : could not decode Antoninianus name tx");
 
     {
         CNameDB dbName("cr+");
@@ -2411,7 +2411,7 @@ bool CNamecoinHooks::DisconnectInputs(const CTransaction& tx)
         // be empty, since a reorg cannot go that far back.  Be safe anyway and do not try to pop if empty.
         if (nameRec.vtxPos.size() > 0)
         {
-            // check if tx matches last tx in denariusnamesindex.dat
+            // check if tx matches last tx in antoninianusnamesindex.dat
             CTransaction lastTx;
             lastTx.ReadFromDisk(nameRec.vtxPos.back().txPos);
             assert(lastTx.GetHash() == tx.GetHash());
@@ -2471,7 +2471,7 @@ bool CNamecoinHooks::ExtractAddress(const CScript& script, string& address)
     return true;
 }
 
-// Executes name operations in vName and writes result to denariusnamesindex.dat.
+// Executes name operations in vName and writes result to antoninianusnamesindex.dat.
 // NOTE: the block should already be written to blockchain by now - otherwise this may fail.
 bool CNamecoinHooks::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex)
 {
@@ -2532,7 +2532,7 @@ bool CNamecoinHooks::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     if (vName.empty())
         return true;
 
-    // All of these name ops should succed. If there is an error - denariusnamesindex.dat is probably corrupt.
+    // All of these name ops should succed. If there is an error - antoninianusnamesindex.dat is probably corrupt.
     CNameDB dbName("cr+");
     set< vector<unsigned char> > sNameNew;
     for (const nameTempProxy &i : vName)

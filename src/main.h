@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2017-2021 The Denarius developers
+// Copyright (c) 2017-2021 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef BITCOIN_MAIN_H
@@ -56,7 +56,7 @@ class CInv;
 class CRequestTracker;
 class CNode;
 
-// General Denarius Block Values
+// General Antoninianus Block Values
 
 // extern CFeeRate minRelayTxFee;
 static const int ZERO_POW_BLOCK = 3000000; // Period of 0 block rewards, now 0.0001 D per block
@@ -80,12 +80,12 @@ static const int64_t NAME_FEE = 1000000; // 0.01 D Name
 static const CAmount MIN_TXOUT_AMOUNT = NAME_FEE;
 static const int64_t MIN_TX_FEE_ANON = 10000;
 static const int64_t MIN_RELAY_TX_FEE = MIN_TX_FEE;
-static const int64_t MAX_MONEY = 10000000 * COIN; // 10,000,000 D Denarius Max
+static const int64_t MAX_MONEY = 10000000 * COIN; // 10,000,000 D Antoninianus Max
 static const int64_t COIN_YEAR_REWARD = 0.06 * COIN; // 6% per year
 
 static const int64_t MAINNET_POSFIX = 640000; //Mainnet Proof of Stake update not enabled until block 640k
 static const int MN_ENFORCEMENT_ACTIVE_HEIGHT = 1450000; // Enforce fortunastake payments after this height - BLOCK 1.45 Million
-static const int MN_ENFORCEMENT_ACTIVE_HEIGHT_TESTNET = 1000; //Enforce FS payments after this height for Denarius Testnet!
+static const int MN_ENFORCEMENT_ACTIVE_HEIGHT_TESTNET = 1000; //Enforce FS payments after this height for Antoninianus Testnet!
 
 inline bool MoneyRange(int64_t nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 
