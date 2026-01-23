@@ -3,7 +3,7 @@
 #include "coincontrol.h"
 #include "script.h"
 #include "wallet.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 
 extern CWallet* pwalletMain;
 extern std::map<uint256, CTransaction> mapTransactions;

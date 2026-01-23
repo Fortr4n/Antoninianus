@@ -10,7 +10,7 @@
 #include "fortunastake.h"
 #include "activefortunastake.h"
 #include "fortunastakeconfig.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include <boost/lexical_cast.hpp>
 #include "util.h"
 #include "base58.h"
@@ -60,10 +60,10 @@ Value fortunastake(const Array& params, bool fHelp)
 			"  enforce      - Enforce fortunastake payments\n"
 			"  outputs      - Print fortunastake compatible outputs\n"
             "  status       - Current fortunastake status\n"
-			"  start        - Start fortunastake configured in denarius.conf\n"
+			"  start        - Start fortunastake configured in antoninianus.conf\n"
 			"  start-alias  - Start single fortunastake by assigned alias configured in fortunastake.conf\n"
 			"  start-many   - Start all fortunastakes configured in fortunastake.conf\n"
-			"  stop         - Stop fortunastake configured in denarius.conf\n"
+			"  stop         - Stop fortunastake configured in antoninianus.conf\n"
 			"  stop-alias   - Stop single fortunastake by assigned alias configured in fortunastake.conf\n"
 			"  stop-many    - Stop all fortunastakes configured in fortunastake.conf\n"
 			"  list         - Print list of all known fortunastakes (see fortunastakelist for more info)\n"
@@ -291,7 +291,7 @@ Value fortunastake(const Array& params, bool fHelp)
 
     if (strCommand == "start")
     {
-        if(!fFortunaStake) return "You must set fortunastake=1 in your denarius.conf";
+        if(!fFortunaStake) return "You must set fortunastake=1 in your antoninianus.conf";
 
         if(pwalletMain->IsLocked()) {
             SecureString strWalletPass;
@@ -775,10 +775,10 @@ Value masternode(const Array& params, bool fHelp)
 			"  enforce      - Enforce fortunastake payments\n"
 			"  outputs      - Print fortunastake compatible outputs\n"
             "  status       - Current fortunastake status\n"
-			"  start        - Start fortunastake configured in denarius.conf\n"
+			"  start        - Start fortunastake configured in antoninianus.conf\n"
 			"  start-alias  - Start single fortunastake by assigned alias configured in fortunastake.conf\n"
 			"  start-many   - Start all fortunastakes configured in fortunastake.conf\n"
-			"  stop         - Stop fortunastake configured in denarius.conf\n"
+			"  stop         - Stop fortunastake configured in antoninianus.conf\n"
 			"  stop-alias   - Stop single fortunastake by assigned alias configured in fortunastake.conf\n"
 			"  stop-many    - Stop all fortunastakes configured in fortunastake.conf\n"
 			"  list         - Print list of all known fortunastakes (see fortunastakelist for more info)\n"

@@ -2,7 +2,7 @@
 #include "ui_rpcconsole.h"
 
 #include "clientmodel.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include "guiutil.h"
 #include "peertablemodel.h"
 #include "bantablemodel.h"

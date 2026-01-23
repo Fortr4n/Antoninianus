@@ -1,10 +1,10 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2017-2020 The Denarius developers
+// Copyright (c) 2017-2020 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "main.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include "init.h"
 #include "txdb.h"
 #include <errno.h>
@@ -106,7 +106,7 @@ Value jupiterversion(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "jupiterversion\n"
-            "Returns the version of the connected IPFS node within the Denarius Jupiter");
+            "Returns the version of the connected IPFS node within the Antoninianus Jupiter");
 
     ipfs::Json version;
     ipfs::Json id;
@@ -213,7 +213,7 @@ Value jupiterpod(const Array& params, bool fHelp)
 
             //Jupiter POD
             if (hash != "") {
-                //Hash the file for Denarius Jupiter POD
+                //Hash the file for Antoninianus Jupiter POD
                 //uint256 imagehash = SerializeHash(ipfsContents);
                 CKeyID keyid(Hash160(hash.begin(), hash.end()));
                 CBitcoinAddress baddr = CBitcoinAddress(keyid);
@@ -309,7 +309,7 @@ Value jupiterpod(const Array& params, bool fHelp)
 
                 //Jupiter POD
                 if (hash != "") {
-                    //Hash the file for Denarius Jupiter POD
+                    //Hash the file for Antoninianus Jupiter POD
                     //uint256 imagehash = SerializeHash(ipfsContents);
                     CKeyID keyid(Hash160(hash.begin(), hash.end()));
                     CBitcoinAddress baddr = CBitcoinAddress(keyid);
@@ -479,7 +479,7 @@ Value jupiterupload(const Array& params, bool fHelp)
         }
 
         /*     ￼
-        jupiterupload C:/users/NAME/Dropbox/Denarius/denarius-128.png
+        jupiterupload C:/users/NAME/Dropbox/Antoninianus/denarius-128.png
         15:45:55        ￼
         {
         "filename" : "denarius-128.png",
@@ -611,7 +611,7 @@ Value jupiterduo(const Array& params, bool fHelp)
         }
 
         /*     ￼
-        jupiterupload C:/users/NAME/Dropbox/Denarius/denarius-128.png
+        jupiterupload C:/users/NAME/Dropbox/Antoninianus/denarius-128.png
         15:45:55        ￼
         {
         "filename" : "denarius-128.png",
@@ -671,7 +671,7 @@ Value jupiterduopod(const Array& params, bool fHelp)
 
             //Jupiter POD for Duo
             if (hash != "") {
-                //Hash the file for Denarius Jupiter POD
+                //Hash the file for Antoninianus Jupiter POD
                 //uint256 imagehash = SerializeHash(ipfsContents);
                 CKeyID keyid(Hash160(hash.begin(), hash.end()));
                 CBitcoinAddress baddr = CBitcoinAddress(keyid);
@@ -757,7 +757,7 @@ Value jupiterduopod(const Array& params, bool fHelp)
 
                 //Jupiter POD for Duo
                 if (hash != "") {
-                    //Hash the file for Denarius Jupiter POD
+                    //Hash the file for Antoninianus Jupiter POD
                     //uint256 imagehash = SerializeHash(ipfsContents);
                     CKeyID keyid(Hash160(hash.begin(), hash.end()));
                     CBitcoinAddress baddr = CBitcoinAddress(keyid);

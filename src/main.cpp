@@ -90,7 +90,7 @@ map<uint256, set<uint256> > mapOrphanTransactionsByPrev;
 // Constant stuff for coinbase transactions we create:
 CScript COINBASE_FLAGS;
 
-const string strMessageMagic = "Denarius Signed Message:\n";
+const string strMessageMagic = "Antoninianus Signed Message:\n";
 
 // Settings
 int64_t nTransactionFee = MIN_TX_FEE;
@@ -4037,10 +4037,10 @@ bool LoadBlockIndex(bool fAllowNew)
 
     if (fTestNet)
     {
-        pchMessageStart[0] = 0x07;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x05;
-        pchMessageStart[3] = 0x0b;
+        pchMessageStart[0] = 0x08;
+        pchMessageStart[1] = 0x12;
+        pchMessageStart[2] = 0x06;
+        pchMessageStart[3] = 0x0c;
 
         bnProofOfWorkLimit = bnProofOfWorkLimitTestNet; // 16 bits PoW target limit for testnet
         nStakeMinAge = 8 * 60 * 60; // test net min age is 8 hours like mainnet
@@ -4066,7 +4066,7 @@ bool LoadBlockIndex(bool fAllowNew)
 
         if(fTestNet)
         {
-            const char* pszTimestampTestNet = "https://blockforums.org/topic/417-denarius-cryptocurrency-marketing-images-pdf-svg-jpg-png/";
+            const char* pszTimestampTestNet = "Antoninianus Testnet Launch - Modernizing the Classics";
             CTransaction txNewTestNet;
 
             txNewTestNet.nTime = 1606593576;
@@ -4132,7 +4132,7 @@ bool LoadBlockIndex(bool fAllowNew)
 
         } else {
 
-            const char* pszTimestamp = "http://www.coindesk.com/bitcoin-scaling-give-everyone-control/";
+            const char* pszTimestamp = "Antoninianus Mainnet - A New Era of Staking and Privacy";
             CTransaction txNew;
             txNew.nTime = 1497476511;
             txNew.vin.resize(1);
@@ -4593,7 +4593,7 @@ void static ProcessGetData(CNode* pfrom)
 // The message start string is designed to be unlikely to occur in normal data.
 // The characters are rarely used upper ASCII, not valid as UTF-8, and produce
 // a large 4-byte int at any alignment.
-unsigned char pchMessageStart[4] = { 0xfa, 0xf2, 0xef, 0xb4 };
+unsigned char pchMessageStart[4] = { 0xa4, 0xed, 0xf2, 0xc1 };
 
 bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, int64_t nTimeReceived)
 {

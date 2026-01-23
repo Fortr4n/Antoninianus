@@ -335,7 +335,7 @@ QVariant NameTableModel::headerData(int section, Qt::Orientation orientation, in
             case Value:
                 return tr("Data associated with the name.");
             case Address:
-                return tr("Denarius address to which the name is registered.");
+                return tr("Antoninianus address to which the name is registered.");
             case ExpiresIn:
                 return tr("Number of blocks, after which the name will expire. name_update to renew it.");
             }

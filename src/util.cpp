@@ -1112,7 +1112,7 @@ static std::string FormatException(std::exception* pex, const char* pszThread)
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "denarius";
+    const char* pszModule = "antoninianus";
 #endif
     if (pex)
         return strprintf(
@@ -1143,13 +1143,13 @@ boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
 
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Denarius
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Denarius
-    // Mac: ~/Library/Application Support/Denarius
-    // Unix: ~/.denarius
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Antoninianus
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Antoninianus
+    // Mac: ~/Library/Application Support/Antoninianus
+    // Unix: ~/.antoninianus
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Denarius";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Antoninianus";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -1161,16 +1161,16 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     fs::create_directory(pathRet);
-    return pathRet / "Denarius";
+    return pathRet / "Antoninianus";
 #else
     // Unix
-    return pathRet / ".denarius";
+    return pathRet / ".antoninianus";
 #endif
 #endif
 }
 
 //
-// Write denarius.conf by CircuitBreaker88
+// Write antoninianus.conf by CircuitBreaker88
 //
 
 static std::string GenerateRandomString(unsigned int len) {
@@ -1317,7 +1317,7 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "denarius.conf"));
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "antoninianus.conf"));
     if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir(false) / pathConfigFile;
     return pathConfigFile;
 }
@@ -1334,15 +1334,15 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 {
     boost::filesystem::ifstream streamConfig(GetConfigFile());
     if (!streamConfig.good()){
-        // Create empty denarius.conf if it does not exist
+        // Create empty antoninianus.conf if it does not exist
         FILE* configFile = fopen(GetConfigFile().string().c_str(), "a");
         if (configFile != NULL) {
             WriteConfigFile(configFile);
             //fclose(configFile);
-            printf("WriteConfigFile() Denarius.conf Setup Successfully!");
+            printf("WriteConfigFile() antoninianus.conf Setup Successfully!");
             ReadConfigFile(mapSettingsRet, mapMultiSettingsRet);
         } else {
-            printf("WriteConfigFile() denarius.conf file could not be created");
+            printf("WriteConfigFile() antoninianus.conf file could not be created");
             return; // Nothing to read, so just return
         }
     }
@@ -1366,7 +1366,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "denariusd.pid"));
+    boost::filesystem::path pathPidFile(GetArg("-pid", "antoninianusd.pid"));
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -1515,10 +1515,10 @@ void AddTimeData(const CNetAddr& ip, int64_t nTime)
                 if (!fMatch)
                 {
                     fDone = true;
-                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Denarius will not work properly.");
+                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Antoninianus will not work properly.");
                     strMiscWarning = strMessage;
                     printf("*** %s\n", strMessage.c_str());
-                    uiInterface.ThreadSafeMessageBox(strMessage+" ", string("Denarius"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION);
+                    uiInterface.ThreadSafeMessageBox(strMessage+" ", string("Antoninianus"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION);
                 }
             }
         }

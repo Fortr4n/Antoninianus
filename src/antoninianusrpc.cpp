@@ -8,7 +8,7 @@
 #include "sync.h"
 #include "ui_interface.h"
 #include "base58.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include "db.h"
 
 #undef printf
@@ -181,7 +181,7 @@ vector<unsigned char> ParseHexO(const Object& o, string strKey)
 
 string CRPCTable::help(string strCommand) const
 {
-    //Ring Sigs - D e n a r i u s
+    //Ring Sigs - Antoninianus
     bool fAllAnon = strCommand == "anon" ? true : false;
     printf("fAllAnon %d %s\n", fAllAnon, strCommand.c_str());
 
@@ -248,12 +248,12 @@ Value stop(const Array& params, bool fHelp)
         throw runtime_error(
             "stop <detach>\n"
             "<detach> is true or false to detach the database or not for this stop only\n"
-            "Stop Denarius server (and possibly override the detachdb config value).");
+            "Stop Antoninianus server (and possibly override the detachdb config value).");
     // Shutdown will take long enough that the response should get back
     if (params.size() > 0)
         bitdb.SetDetach(params[0].get_bool());
     StartShutdown();
-    return "Denarius server stopping, please wait a few minutes for full shutdown...";
+    return "Antoninianus server stopping, please wait a few minutes for full shutdown...";
 }
 
 
@@ -368,7 +368,7 @@ static const CRPCCommand vRPCCommands[] =
     { "clearwallettransactions",&clearwallettransactions,false,  false},
     { "scanforalltxns",         &scanforalltxns,         false,  false},
 
-    // Ring Signatures - D e n a r i u s - v3.1.0
+    // Ring Signatures - Antoninianus - v3.1.0
     { "senddtoanon",          	&senddtoanon,          	 false,  false},
     { "sendanontoanon",         &sendanontoanon,         false,  false},
     { "sendanontod",          	&sendanontod,         	 false,  false},
@@ -399,7 +399,7 @@ static const CRPCCommand vRPCCommands[] =
 
     { "proofofdata",          &proofofdata,              false,  true  },
 
-    // Denarius Jupiter IPFS
+    // Antoninianus Jupiter IPFS
     { "jupiterversion",       &jupiterversion,           true,   false },
     { "jupiterupload",        &jupiterupload,            false,  false },
     { "jupiterpod",           &jupiterpod,               false,  true  },
@@ -408,7 +408,7 @@ static const CRPCCommand vRPCCommands[] =
     { "jupitergetblock",      &jupitergetblock,          false,  false },
     { "jupitergetstat",       &jupitergetstat,           false,  false },
 
-    // Denarius Name Commands
+    // Antoninianus Name Commands
     { "name_new",               &name_new,               false,  true },
     { "name_update",            &name_update,            false,  true },
     { "name_delete",            &name_delete,            false,  true },
@@ -456,7 +456,7 @@ string HTTPPost(const string& strMsg, const map<string,string>& mapRequestHeader
 {
     ostringstream s;
     s << "POST / HTTP/1.1\r\n"
-      << "User-Agent: denarius-json-rpc/" << FormatFullVersion() << "\r\n"
+      << "User-Agent: antoninianus-json-rpc/" << FormatFullVersion() << "\r\n"
       << "Host: 127.0.0.1\r\n"
       << "Content-Type: application/json\r\n"
       << "Content-Length: " << strMsg.size() << "\r\n"
@@ -487,7 +487,7 @@ static string HTTPReply(int nStatus, const string& strMsg, bool keepalive)
     if (nStatus == HTTP_UNAUTHORIZED)
         return strprintf("HTTP/1.0 401 Authorization Required\r\n"
             "Date: %s\r\n"
-            "Server: denarius-json-rpc/%s\r\n"
+            "Server: antoninianus-json-rpc/%s\r\n"
             "WWW-Authenticate: Basic realm=\"jsonrpc\"\r\n"
             "Content-Type: text/html\r\n"
             "Content-Length: 296\r\n"
@@ -514,7 +514,7 @@ static string HTTPReply(int nStatus, const string& strMsg, bool keepalive)
             "Connection: %s\r\n"
             "Content-Length: %" PRIszu"\r\n"
             "Content-Type: application/json\r\n"
-            "Server: denarius-json-rpc/%s\r\n"
+            "Server: antoninianus-json-rpc/%s\r\n"
             "\r\n"
             "%s",
         nStatus,
@@ -785,7 +785,7 @@ private:
 void ThreadRPCServer(void* parg)
 {
     // Make this thread recognisable as the RPC listener
-    RenameThread("denarius-rpclist");
+    RenameThread("antoninianus-rpclist");
 
     try
     {

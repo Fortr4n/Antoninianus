@@ -419,7 +419,7 @@ bool ToolTipToRichTextFilter::eventFilter(QObject *obj, QEvent *evt)
 #ifdef WIN32
 boost::filesystem::path static StartupShortcutPath()
 {
-    return GetSpecialFolderPath(CSIDL_STARTUP) / "Denarius.lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / "Antoninianus.lnk";
 }
 
 bool GetStartOnSystemStartup()

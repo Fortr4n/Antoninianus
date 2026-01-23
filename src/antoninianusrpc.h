@@ -3,8 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef _DENARIUSRPC_H_
-#define _DENARIUSRPC_H_ 1
+#ifndef _ANTONINIANUSRPC_H_
+#define _ANTONINIANUSRPC_H_ 1
 
 #include <string>
 #include <list>
@@ -21,7 +21,7 @@ class CBlockIndex;
 #include "util.h"
 #include "checkpoints.h"
 
-// Denarius Building w/ Boost Support for 1.70.0+
+// Antoninianus Building w/ Boost Support for 1.70.0+
 #if BOOST_VERSION >= 107000
     #define GetIOService(s) ((boost::asio::io_context&)(s).get_executor().context())
     #define GetIOServiceFromPtr(s) ((boost::asio::io_context&)(s->get_executor().context()))
@@ -65,7 +65,7 @@ enum RPCErrorCode
     RPC_SERVER_NOT_STARTED          = -18, // RPC server was not started (StartRPCThreads() not called)
 
     // P2P client errors
-    RPC_CLIENT_NOT_CONNECTED        = -9,  // Bitcoin is not connected
+    RPC_CLIENT_NOT_CONNECTED        = -9,  // Antoninianus is not connected
     RPC_CLIENT_IN_INITIAL_DOWNLOAD  = -10, // Still downloading initial blocks
     RPC_CLIENT_NODE_ALREADY_ADDED   = -23, // Node is already added
     RPC_CLIENT_NODE_NOT_ADDED       = -24, // Node has not been added before
@@ -209,7 +209,7 @@ extern json_spirit::Value signmessage(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value verifymessage(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getreceivedbyaddress(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getreceivedbyaccount(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value fetchbalance(const json_spirit::Array& params, bool fHelp); // D e n a r i u s - Q0FSU0VOIEtMT0NL
+extern json_spirit::Value fetchbalance(const json_spirit::Array& params, bool fHelp); // Antoninianus - Q0FSU0VOIEtMT0NL
 extern json_spirit::Value getbalance(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value movecmd(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value sendfrom(const json_spirit::Array& params, bool fHelp);
@@ -271,7 +271,7 @@ extern json_spirit::Value importaddress(const json_spirit::Array& params, bool f
 extern json_spirit::Value burn(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value proofofdata(const json_spirit::Array& params, bool fHelp); // in rpcblockchain.cpp
 
-extern json_spirit::Value jupiterversion(const json_spirit::Array& params, bool fHelp); // in rpcjupiter.cpp Denarius Jupiter
+extern json_spirit::Value jupiterversion(const json_spirit::Array& params, bool fHelp); // in rpcjupiter.cpp Antoninianus Jupiter
 extern json_spirit::Value jupiterupload(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value jupiterpod(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value jupiterduo(const json_spirit::Array& params, bool fHelp);
@@ -279,7 +279,7 @@ extern json_spirit::Value jupiterduopod(const json_spirit::Array& params, bool f
 extern json_spirit::Value jupitergetblock(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value jupitergetstat(const json_spirit::Array& params, bool fHelp);
 
-extern json_spirit::Value name_new(const json_spirit::Array& params, bool fHelp); // in namecoin.cpp Denairus Name commands
+extern json_spirit::Value name_new(const json_spirit::Array& params, bool fHelp); // in namecoin.cpp Antoninianus Name commands
 extern json_spirit::Value name_update(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value name_delete(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value sendtoname(const json_spirit::Array& params, bool fHelp);
@@ -298,7 +298,7 @@ extern json_spirit::Value importstealthaddress(const json_spirit::Array& params,
 extern json_spirit::Value clearwallettransactions(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value scanforalltxns(const json_spirit::Array& params, bool fHelp);
 
-//RPC Ring Sigs - D e n a r i u s - Q0FSU0VOIEtMT0NL
+//RPC Ring Sigs - Antoninianus - Q0FSU0VOIEtMT0NL
 extern json_spirit::Value senddtoanon(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value sendanontoanon(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value sendanontod(const json_spirit::Array& params, bool fHelp);

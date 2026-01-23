@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Address Book</string>
+   <string>Encrypted Messages</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -155,7 +155,7 @@
        <item>
         <widget class="QPushButton" name="sendButton">
          <property name="toolTip">
-          <string>Sign a message to prove you own a Denarius address</string>
+          <string>Sign a message to prove you own a Antoninianus address</string>
          </property>
          <property name="text">
           <string>&amp;Send</string>

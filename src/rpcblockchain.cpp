@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "main.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include "init.h"
 #include "txdb.h"
 #include <errno.h>
@@ -215,7 +215,7 @@ Value proofofdata(const Array& params, bool fHelp)
         "proofofdata\n"
         "\nArguments:\n"
         "1. \"filelocation\"          (string, required) The file location of the file to upload (e.g. /home/name/file.jpg)\n"
-        "Returns the Denarius address and transaction ID of the proof of data submission of the file hashed into a D address");
+        "Returns the Antoninianus address and transaction ID of the proof of data submission of the file hashed into a D address");
 
     Object obj;
     std::string userFile = params[0].get_str();
@@ -236,7 +236,7 @@ Value proofofdata(const Array& params, bool fHelp)
 
     printf("POD Upload File Start: %s\n", basename.c_str());    
 
-    //Hash the file for Denarius POD
+    //Hash the file for Antoninianus POD
     uint256 datahash = SerializeHash(dataContents);
     CKeyID keyid(Hash160(datahash.begin(), datahash.end()));
     CBitcoinAddress baddr = CBitcoinAddress(keyid);

@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "main.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 
 #include <boost/lexical_cast.hpp>
 

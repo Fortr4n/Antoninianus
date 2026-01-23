@@ -137,7 +137,7 @@
           <item>
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>Generated Timestamp Denarius Address:</string>
+             <string>Generated Timestamp Antoninianus Address:</string>
             </property>
            </widget>
           </item>

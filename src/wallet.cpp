@@ -1659,7 +1659,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                 continue;
 
             for (unsigned int i = 0; i < pcoin->vout.size(); i++) {
-                // ignore Denarius Name TxOut
+                // ignore Antoninianus Name TxOut
                 if (pcoin->nVersion == NAMECOIN_TX_VERSION && hooks->IsNameScript(pcoin->vout[i].scriptPubKey))
                     continue;
                 
@@ -1806,17 +1806,35 @@ static void ApproximateBestSubset(vector<pair<int64_t, pair<const CWalletTx*,uns
     }
 }
 
-// denarius: total coins available for staking - WIP needs updating
+// antoninianus: total coins available for staking
 int64_t CWallet::GetStakeAmount() const
 {
     int64_t nTotal = 0;
+    int64_t nSpendTime = GetAdjustedTime();
     {
         LOCK2(cs_main, cs_wallet);
         for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
         {
             const CWalletTx* pcoin = &(*it).second;
-            if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() > 0) //Just pulls GetBalance() currently
-                nTotal += pcoin->GetAvailableCredit();
+            if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() > 0)
+            {
+                if (pcoin->nTime + nStakeMinAge > nSpendTime)
+                    continue;
+
+                if (pcoin->GetBlocksToMaturity() > 0)
+                    continue;
+
+                for (unsigned int i = 0; i < pcoin->vout.size(); i++)
+                {
+                    if (pcoin->nVersion == ANON_TXN_VERSION && pcoin->vout[i].IsAnonOutput())
+                        continue;
+                    
+                    if (!(pcoin->IsSpent(i)) && IsMine(pcoin->vout[i]) && pcoin->vout[i].nValue >= nMinimumInputValue && !IsLockedCoin((*it).first, i))
+                    {
+                        nTotal += pcoin->vout[i].nValue;
+                    }
+                }
+            }
         }
     }
 
@@ -1891,7 +1909,7 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
 
         int64_t n = pcoin->vout[i].nValue;
 
-        // ignore Denarius Name TxOut
+        // ignore Antoninianus Name TxOut
         if (pcoin->nVersion == NAMECOIN_TX_VERSION && hooks->IsNameScript(pcoin->vout[i].scriptPubKey))
             continue;
 
@@ -2160,7 +2178,7 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
 
         int64_t n = pcoin->vout[i].nValue;
 
-        // ignore Denarius Name TxOut
+        // ignore Antoninianus Name TxOut
         if (pcoin->nVersion == NAMECOIN_TX_VERSION && hooks->IsNameScript(pcoin->vout[i].scriptPubKey))
             continue;
 
@@ -6641,7 +6659,7 @@ bool CWallet::SendDToAnon(CStealthAddress& sxAddress, int64_t nValue, std::strin
 
     if (vNodes.empty())
     {
-        sError = _("Error: Denarius is not connected!");
+        sError = _("Error: Antoninianus is not connected!");
         return false;
     };
 
@@ -6749,7 +6767,7 @@ bool CWallet::SendAnonToAnon(CStealthAddress& sxAddress, int64_t nValue, int nRi
 
     if (vNodes.empty())
     {
-        sError = _("Error: Denarius is not connected!");
+        sError = _("Error: Antoninianus is not connected!");
         return false;
     };
 
@@ -6845,7 +6863,7 @@ bool CWallet::SendAnonToD(CStealthAddress& sxAddress, int64_t nValue, int nRingS
 
     if (vNodes.empty())
     {
-        sError = _("Error: Denarius is not connected!");
+        sError = _("Error: Antoninianus is not connected!");
         return false;
     };
 

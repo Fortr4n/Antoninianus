@@ -1,6 +1,6 @@
 #include "db.h"
 #include "txdb-leveldb.h"
-#include "denariusrpc.h"
+#include "antoninianusrpc.h"
 #include "base58.h"
 #include "main.h"
 #include "hooks.h"
