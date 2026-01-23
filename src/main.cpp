@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2017-2021 The Denarius developers
+// Copyright (c) 2017-2021 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -103,7 +103,7 @@ extern enum Checkpoints::CPMode CheckpointsMode;
 
 std::set<uint256> setValidatedTx;
 
-CHooks* hooks; // This adds Denarius Name DB hooks which allow splicing of code inside standard Denarius functions.
+CHooks* hooks; // This adds Antoninianus Name DB hooks which allow splicing of code inside standard Antoninianus functions.
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1682,7 +1682,7 @@ int64_t GetProofOfStakeReward(int64_t nCoinAge, int64_t nFees)
     int64_t nSubsidy;
     nSubsidy = nCoinAge * nRewardCoinYear / 365; //Updated back on D Block 640k
 
-    //PoS Fixed on Block 640k v2.0+ DeNaRiUs
+    //PoS Fixed on Block 640k v2.0+ Antoninianus
     if (pindexBest->nHeight >= MAINNET_POSFIX || fTestNet)
         nSubsidy = nCoinAge * nRewardCoinYear / 365;
 
@@ -2405,7 +2405,7 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fWriteNames)
             return error("DisconnectBlock() : WriteBlockIndex failed");
     }
 
-    // denarius: undo name transactions in reverse order
+    // antoninianus: undo name transactions in reverse order
     for (int i = vtx.size() - 1; i >= 0; i--)
         hooks->DisconnectInputs(vtx[i]);
 
@@ -2719,7 +2719,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck, boo
     // for all of eternity
 
 
-    // ----- Denarius fortuna stakes, the fair payment edition  -----
+    // ----- Antoninianus fortuna stakes, the fair payment edition  -----
     // proudly presented by enkayz
 
     bool FortunastakePayments = false;
@@ -3037,7 +3037,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck, boo
     pindex->nMoneySupply -= nAmountBurned;
     assert(pindex->nMoneySupply >= 0);
 
-    // denarius: collect valid name tx
+    // antoninianus: collect valid name tx
     // NOTE: tx.UpdateCoins should not affect this loop, probably...
     // vector<nameTempProxy> vName;
     // for (unsigned int i=0; i<vtx.size(); i++)
@@ -3122,7 +3122,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck, boo
 
     // Check Name Release Height to Connect Blocks
     if (pindex->nHeight >= RELEASE_HEIGHT) {
-        // add names to denariusnamesindex.dat
+        // add names to antoninianusnamesindex.dat
         hooks->ConnectBlock(txdb, pindex);
     }
 
@@ -3782,7 +3782,7 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
         }
     }
 
-    // Denarius: ask for pending sync-checkpoint if any
+    // Antoninianus: ask for pending sync-checkpoint if any
     if (!IsInitialBlockDownload()){
 
         Checkpoints::AskForPendingSyncCheckpoint(pfrom);
@@ -3977,7 +3977,7 @@ bool CheckDiskSpace(uint64_t nAdditionalBytes)
         string strMessage = _("Warning: Disk space is low!");
         strMiscWarning = strMessage;
         printf("*** %s\n", strMessage.c_str());
-        uiInterface.ThreadSafeMessageBox(strMessage, "Denarius", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+        uiInterface.ThreadSafeMessageBox(strMessage, "Antoninianus", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         StartShutdown();
         return false;
     }
@@ -4114,7 +4114,7 @@ bool LoadBlockIndex(bool fAllowNew)
             // -- debug print
             if (fDebugChain)
             {
-                printf("Initialised Denarius TestNet genesis block:\n");
+                printf("Initialised Antoninianus TestNet genesis block:\n");
                 blocktest.print();
             };
 

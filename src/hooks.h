@@ -1,9 +1,9 @@
-// Copyright (c) 2021 Denarius Developers
+// Copyright (c) 2021 Antoninianus Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file license.txt or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DENARIUS_HOOKS_H
-#define DENARIUS_HOOKS_H
+#ifndef ANTONINIANUS_HOOKS_H
+#define ANTONINIANUS_HOOKS_H
 
 class CWalletTx;
 class CScript;

@@ -1,5 +1,5 @@
 /*
- * Simple DNS server for Denarius
+ * Simple DNS server for Antoninianus
  *
  * Lookup for names like "dns:example.d" in the local nameindex database.
  * Database is updates from blockchain, and keeps NMC-transactions.

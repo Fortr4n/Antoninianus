@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2017-2018 The Denarius developers
+// Copyright (c) 2017-2018 The Antoninianus developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -97,7 +97,7 @@ void Shutdown(void* parg)
     printf("Shutdown is in progress...\n\n");
 
     // Make this thread recognisable as the shutdown thread
-    RenameThread("denarius-shutoff");
+    RenameThread("antoninianus-shutoff");
 
     bool fFirstThread = false;
     {
@@ -131,7 +131,7 @@ void Shutdown(void* parg)
         */
         NewThread(ExitTimeout, NULL);
         MilliSleep(50);
-        printf("Denarius exited\n\n");
+        printf("Antoninianus exited\n\n");
         fExit = true;
 #ifndef QT_GUI
         // ensure non-UI client gets exited here, but let Bitcoin-Qt reach 'return 0;' in bitcoin.cpp
@@ -185,12 +185,12 @@ bool AppInit(int argc, char* argv[])
         if (mapArgs.count("-?") || mapArgs.count("--help"))
         {
             // First part of help message is specific to bitcoind / RPC client
-            std::string strUsage = _("Denarius version") + " " + FormatFullVersion() + "\n\n" +
+            std::string strUsage = _("Antoninianus version") + " " + FormatFullVersion() + "\n\n" +
                 _("Usage:") + "\n" +
-                  "  denariusd [options]                     " + "\n" +
-                  "  denariusd [options] <command> [params]  " + _("Send command to -server or denariusd") + "\n" +
-                  "  denariusd [options] help                " + _("List commands") + "\n" +
-                  "  denariusd [options] help <command>      " + _("Get help for a command") + "\n";
+                  "  antoninianusd [options]                     " + "\n" +
+                  "  antoninianusd [options] <command> [params]  " + _("Send command to -server or antoninianusd") + "\n" +
+                  "  antoninianusd [options] help                " + _("List commands") + "\n" +
+                  "  antoninianusd [options] help <command>      " + _("Get help for a command") + "\n";
 
             strUsage += "\n" + HelpMessage();
 
@@ -200,7 +200,7 @@ bool AppInit(int argc, char* argv[])
 
         // Command-line RPC
         for (int i = 1; i < argc; i++)
-            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "denarius:"))
+            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "antoninianus:"))
                 fCommandLine = true;
 
         if (fCommandLine)
@@ -267,13 +267,13 @@ int main(int argc, char* argv[])
 
 bool static InitError(const std::string &str)
 {
-    uiInterface.ThreadSafeMessageBox(str, _("Denarius"), CClientUIInterface::OK | CClientUIInterface::MODAL);
+    uiInterface.ThreadSafeMessageBox(str, _("Antoninianus"), CClientUIInterface::OK | CClientUIInterface::MODAL);
     return false;
 }
 
 bool static InitWarning(const std::string &str)
 {
-    uiInterface.ThreadSafeMessageBox(str, _("Denarius"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+    uiInterface.ThreadSafeMessageBox(str, _("Antoninianus"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
     return true;
 }
 
@@ -658,7 +658,7 @@ bool AppInit2()
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
     // Sanity check
     if (!InitSanityCheck())
-        return InitError(_("Initialization sanity check failed. Denarius is shutting down."));
+        return InitError(_("Initialization sanity check failed. Antoninianus is shutting down."));
 
     std::string strDataDir = GetDataDir().string();
     std::string strWalletFileName = GetArg("-wallet", "wallet.dat");
@@ -667,7 +667,7 @@ bool AppInit2()
     if (strWalletFileName != boost::filesystem::basename(strWalletFileName) + boost::filesystem::extension(strWalletFileName))
         return InitError(strprintf(_("Wallet %s resides outside data directory %s."), strWalletFileName.c_str(), strDataDir.c_str()));
 
-    // Make sure only a single Denarius process is using the data directory.
+    // Make sure only a single Antoninianus process is using the data directory.
     boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
     FILE* file = fopen(pathLockFile.string().c_str(), "a"); // empty lock file; created if it doesn't exist.
     if (file)
@@ -675,13 +675,13 @@ bool AppInit2()
 
     static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
     if (!lock.try_lock())
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Denarius is probably already running."), strDataDir.c_str()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Antoninianus is probably already running."), strDataDir.c_str()));
 
-    hooks = InitHook(); //Initialized Denarius Name Hooks
+    hooks = InitHook(); //Initialized Antoninianus Name Hooks
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
     printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    printf("Denarius version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
+    printf("Antoninianus version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) //WIP OpenSSL 1.0.x only, OpenSSL 1.1 not supported yet
     printf("Using OpenSSL version %s\n", SSLeay_version(SSLEAY_VERSION));
 #else
@@ -713,7 +713,7 @@ bool AppInit2()
     }
 
     if (fDaemon)
-        fprintf(stdout, "Denarius server starting\n");
+        fprintf(stdout, "Antoninianus server starting\n");
 
     int64_t nStart;
     int64_t nStart2;
@@ -755,7 +755,7 @@ bool AppInit2()
                                      " Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
                                      " your balance or transactions are incorrect you should"
                                      " restore from a backup."), strDataDir.c_str());
-            uiInterface.ThreadSafeMessageBox(msg, _("Denarius"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+            uiInterface.ThreadSafeMessageBox(msg, _("Antoninianus"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         };
 
         if (r == CDBEnv::RECOVER_FAIL)
@@ -996,15 +996,15 @@ bool AppInit2()
     };
     printf(" block index %15" PRId64"ms\n", GetTimeMillis() - nStart);
 
-    //Create Denarius Name index - this must happen before ReacceptWalletTransactions()
+    //Create Antoninianus Name index - this must happen before ReacceptWalletTransactions()
     uiInterface.InitMessage(_("Loading name index..."));
-    printf("Loading Denarius name index...\n");
+    printf("Loading Antoninianus name index...\n");
     nStart2 = GetTimeMillis();
 
     extern bool createNameIndexFile();
-    if (!filesystem::exists(GetDataDir() / "denariusnamesindex.dat") && !createNameIndexFile())
+    if (!filesystem::exists(GetDataDir() / "antoninianusnamesindex.dat") && !createNameIndexFile())
     {
-        printf("Fatal error: Failed to create denariusnamesindex.dat\n");
+        printf("Fatal error: Failed to create antoninianusnamesindex.dat\n");
         return false;
     }
 
@@ -1071,15 +1071,15 @@ bool AppInit2()
         {
             string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
                          " or address book entries might be missing or incorrect."));
-            uiInterface.ThreadSafeMessageBox(msg, _("Denarius"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+            uiInterface.ThreadSafeMessageBox(msg, _("Antoninianus"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         }
         else
         if (nLoadWalletRet == DB_TOO_NEW)
-            strErrors << _("Error loading wallet.dat: Wallet requires newer version of Denarius") << "\n";
+            strErrors << _("Error loading wallet.dat: Wallet requires newer version of Antoninianus") << "\n";
         else
         if (nLoadWalletRet == DB_NEED_REWRITE)
         {
-            strErrors << _("Wallet needed to be rewritten: restart Denarius to complete") << "\n";
+            strErrors << _("Wallet needed to be rewritten: restart Antoninianus to complete") << "\n";
             printf("%s", strErrors.str().c_str());
             return InitError(strErrors.str());
         }
@@ -1122,7 +1122,7 @@ bool AppInit2()
     };
 
     printf("%s", strErrors.str().c_str());
-    printf("Denarius Wallet %15" PRId64"ms\n", GetTimeMillis() - nStart);
+    printf("Antoninianus Wallet %15" PRId64"ms\n", GetTimeMillis() - nStart);
 
     RegisterWallet(pwalletMain);
 
@@ -1204,7 +1204,7 @@ bool AppInit2()
 
     if (!CheckDiskSpace())
     {
-        return InitError(_("Error: not enough disk space to start Denarius."));
+        return InitError(_("Error: not enough disk space to start Antoninianus."));
     }
 
     if (!strErrors.str().empty())
@@ -1334,7 +1334,7 @@ bool AppInit2()
     if (fServer)
         NewThread(ThreadRPCServer, NULL);
 
-    // Init Denarius DNS.
+    // Init Antoninianus DNS.
     if (GetBoolArg("-ddns", true))
     {
         #define DDNS_PORT 5333
@@ -1348,7 +1348,7 @@ bool AppInit2()
         string localcf = GetArg("-ddnslocalcf", "");
         ddns = new DDns(bind_ip.c_str(), port,
         suffix.c_str(), allowed.c_str(), localcf.c_str(), verbose);
-        printf("Denarius DNS Server started on %d!\n", port);
+        printf("Antoninianus DNS Server started on %d!\n", port);
     }
 
     // ********************************************************* Step 12: finished

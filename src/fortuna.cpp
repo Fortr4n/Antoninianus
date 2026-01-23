@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Denarius developers
+// Copyright (c) 2017 The Antoninianus developers
 // Copyright (c) 2009-2012 The Darkcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -45,7 +45,7 @@ int MIN_MN_PROTO_VERSION = 33933; // D v3.3.9.9 - Proto - 33933
 /* *** BEGIN FORTUNA MAGIC  **********
     Copyright 2014, Darkcoin Developers
         eduffield - evan@darkcoin.io
-    Copyright 2018-2020, Denarius Developers
+    Copyright 2018-2020, Antoninianus Developers
         carsenk - admin@denarius.io
         enkayz - enkayz@denarius.io
 */
@@ -940,7 +940,7 @@ bool CFortunaQueue::CheckSignature()
 void ThreadCheckForTunaPool(void* parg)
 {
     // Make this thread recognisable as the wallet flushing thread
-    RenameThread("denarius-mn");
+    RenameThread("antoninianus-mn");
 
     unsigned int c = 0;
     std::string errorMessage;

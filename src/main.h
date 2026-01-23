@@ -285,7 +285,7 @@ class CTransaction
 public:
     static const int CURRENT_VERSION=1;
     int nVersion;
-    unsigned int nTime; //Denarius TXs require nTime
+    unsigned int nTime; //Antoninianus TXs require nTime
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     unsigned int nLockTime;
@@ -561,7 +561,7 @@ public:
 // struct CMutableTransaction
 // {
 //     int32_t nVersion;
-//     uint32_t nTime;                    // Denarius: transaction timestamp
+//     uint32_t nTime;                    // Antoninianus: transaction timestamp
 //     std::vector<CTxIn> vin;
 //     std::vector<CTxOut> vout;
 //     uint32_t nLockTime;
